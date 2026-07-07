@@ -2,6 +2,15 @@
 #
 # Defaults follow Gradone et al. 2023 / gliderad2cp / Todd et al. 2017 (PLAN.md §6).
 
+"""
+    QCThresholds(; correlation=50, amplitude_max=75, snr_db=3, velocity_max=0.8,
+                 ambiguity_frac=0.9, surface_depth=5, first_cells=1,
+                 drop_error_pings=true)
+
+Thresholds for [`qc!`](@ref). Defaults follow Gradone et al. (2023), gliderad2cp and
+Todd et al. (2017); set a numeric field to `NaN` (or `first_cells = 0`) to disable that
+screen. See the tutorial for tuning guidance.
+"""
 Base.@kwdef struct QCThresholds
     correlation::Float64 = 50.0      # min %, Gradone 2023 (80 = gliderad2cp strict)
     amplitude_max::Float64 = 75.0    # max dB, Gradone 2023

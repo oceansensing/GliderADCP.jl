@@ -26,7 +26,13 @@ inverse and shear U/V sections with IGRF declination, provenance netCDF export, 
 dive/climb consistency of 2 cm/s; the vertical-structure validation against the prior
 Python processing is documented in
 [docs/research/m38_validation.md](docs/research/m38_validation.md).
-See [PLAN.md](PLAN.md) for the roadmap.
+
+**Documentation:** start with the
+[tutorial](docs/src/tutorial.md) (science + worked pipeline); API reference builds with
+Documenter (`julia --project=docs docs/make.jl`). Design record: [PLAN.md](PLAN.md) and
+[docs/research/](docs/research/). Examples: [examples/m38_currents.jl](examples/m38_currents.jl)
+(full mission) and [examples/m38_divand_sections.jl](examples/m38_divand_sections.jl)
+(DIVAnd-mapped sections).
 
 ```julia
 using GliderADCP

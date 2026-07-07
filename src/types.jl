@@ -84,6 +84,12 @@ struct AD2CPData
 end
 
 Base.length(a::AD2CPData) = length(a.time)
+
+"""
+    ncells(a::AD2CPData) -> Int
+
+Number of profiling cells per ping.
+"""
 ncells(a::AD2CPData) = length(a.range)
 
 function Base.show(io::IO, a::AD2CPData)

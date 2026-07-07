@@ -16,6 +16,16 @@
 # exact 3-beam transform upstream, correct rotation, no off-by-one bin drop, clean
 # interior-only D2 rows, and bottom-track support.
 
+"""
+    InverseOptions(; dz=10, wdac=5, wsmooth_ocean=1, wsmooth_glider=0, wbt=5,
+                   bt_max_dt=6, dac_form=:ocean, min_pings=30, min_bin_obs=1)
+
+Options for [`solve_inverse`](@ref)/[`invert_segment`](@ref). `dac_form` selects the
+depth-averaged-current constraint: `:ocean` (unweighted depth mean, Gradone et al. 2023),
+`:ocean_timeweighted` (residence-time-weighted — physically exact since the DAC is a time
+average; requires glider depths) or `:platform` (time-integral of the glider velocity,
+Visbeck 2002). Weights follow Todd et al. (2017).
+"""
 Base.@kwdef struct InverseOptions
     dz::Float64 = 10.0              # ocean bin size (m); ≥ cell size
     wdac::Float64 = 5.0             # DAC constraint weight (Todd et al. 2017)

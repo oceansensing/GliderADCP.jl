@@ -5,6 +5,7 @@ makedocs(
     modules = [GliderADCP],
     pages = [
         "Home" => "index.md",
+        "Tutorial" => "tutorial.md",
         "API" => "api.md",
     ],
     checkdocs = :exports,

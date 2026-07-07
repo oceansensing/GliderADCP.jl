@@ -15,7 +15,7 @@ Implements, from first principles, the two published approaches:
 
 Processing is organized as independent layers (see `PLAN.md`):
 
-  I/O (MIDAS netCDF, SeaExplorer gli/pld, \$PNOR stream, Slocum, native .ad2cp)
+  I/O (MIDAS netCDF, SeaExplorer gli/pld, `\$PNOR` stream, Slocum, native .ad2cp)
   → sound-speed correction → QC → beam geometry (3-beam selection, beam→XYZ→ENU)
   → bin mapping → DAC → velocity solutions (shear | inverse) → gridded products.
 """

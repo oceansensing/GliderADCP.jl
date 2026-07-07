@@ -9,6 +9,14 @@
 #   3. integrate top-down → baroclinic profile (gaps hold velocity constant)
 #   4. reference: depth-mean over glider-sampled bins matched to the segment DAC
 
+"""
+    ShearOptions(; dz=10, stat=:median, min_bin_obs=4, min_pings=30,
+                 referencing=:timeweighted)
+
+Options for [`solve_shear`](@ref). `referencing=:timeweighted` matches the DAC (a time
+average along the track) with residence-time bin weights; `:simple` uses the plain depth
+mean over sampled bins.
+"""
 Base.@kwdef struct ShearOptions
     dz::Float64 = 10.0              # depth bin size (m)
     stat::Symbol = :median          # :median | :mean bin statistic

@@ -29,12 +29,19 @@ pn = fill(1 / 10.0, size(xi))
 
 len = (1.5, 60.0)            # correlation lengths: 1.5 days, 60 m
 eps2 = 0.2
+# clever poor man's error: mask the analysis where the data give no real support
+# (unsampled deep interior of the shallow early yos, ADCP-off gaps)
+cpme = DIVAnd_cpme(mask, (pm, pn), (xi, yi), (days, z),
+    Float64.(prof.u) .- mean(prof.u), len, eps2)
+supported = cpme .< 0.4
 sections = Dict{Symbol,Matrix{Float64}}()
 for comp in (:u, :v)
     f = Float64.(prof[!, comp])
     fm = mean(f)
     fa, _ = DIVAndrun(mask, (pm, pn), (xi, yi), (days, z), f .- fm, len, eps2)
-    sections[comp] = fa .+ fm
+    fa .+= fm
+    fa[.!supported] .= NaN
+    sections[comp] = fa
 end
 
 fig = Figure(size=(1500, 700))

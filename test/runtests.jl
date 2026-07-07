@@ -391,8 +391,8 @@ end
         celldepth = offsets .+ depth'
         E = [u_o(celldepth[k, i]) - u_g[i] for k in 1:31, i in 1:nt]
         N = [v_o(celldepth[k, i]) - v_g[i] for k in 1:31, i in 1:nt]
-        pp = ProcessedPings(times, tunix, depth, offsets, E, N, zeros(31, nt),
-            celldepth, :down, fill((1, 2, 4), nt))
+        pp = ProcessedPings(times, tunix, depth, fill(90.0, nt), offsets, E, N,
+            zeros(31, nt), celldepth, :down, fill((1, 2, 4), nt))
 
         centers = 5.0:10.0:195.0                       # DAC over glider-covered bins
         dacu, dacv = mean(u_o.(centers)), mean(v_o.(centers))
@@ -489,8 +489,8 @@ end
         celldepth = offsets .+ depth'
         ug = 0.2
         E = [u_o(celldepth[k, i]) - ug for k in 1:31, i in 1:nt]
-        pp = ProcessedPings(times, tunix, depth, offsets, E, zeros(31, nt),
-            zeros(31, nt), celldepth, :down, fill((1, 2, 4), nt))
+        pp = ProcessedPings(times, tunix, depth, fill(90.0, nt), offsets, E,
+            zeros(31, nt), zeros(31, nt), celldepth, :down, fill((1, 2, 4), nt))
         dacu = mean(u_o.(depth))                     # what the nav DAC measures
         dacdf = DataFrame(yo=[1], t_start=[times[1]], t_end=[times[end]],
             t_mid=[times[nt÷2]], u=[dacu], v=[0.0])
@@ -678,6 +678,103 @@ end
             @test length(a2) == length(a)
             @info "native .ad2cp reader ≡ MIDAS netCDF: bit-identical on M38 " *
                   "($(length(a)) ensembles + $(length(a.bt)) BT records)"
+        end
+    end
+
+    @testset "shear-bias calibration (synthetic injection)" begin
+        u_o(z) = 0.15 * sin(2π * z / 160) + 0.05
+        nyo, npy = 3, 400
+        nt = nyo * npy
+        headings = [30.0, 150.0, 270.0]
+        t0 = DateTime(2022, 11, 4)
+        times = t0 .+ Second.(10 .* (0:nt-1))
+        tunix = datetime2unix.(times)
+        offsets = collect(0.0:1.0:30.0)
+        depth = Float64[]; hdg = Float64[]
+        for y in 1:nyo, i in 1:npy
+            push!(depth, 10 + 180 * (1 - abs(1 - 2i / npy)))
+            push!(hdg, headings[y])
+        end
+        celldepth = offsets .+ depth'
+        strue = -4e-4                                # injected track-frame bias slope
+        B = strue .* (offsets .- mean(offsets))
+        E = Matrix{Float64}(undef, 31, nt); N = similar(E)
+        for i in 1:nt
+            h = hdg[i]
+            ugE, ugN = 0.3 * sind(h), 0.3 * cosd(h)  # glider moves along heading
+            for k in 1:31
+                E[k, i] = u_o(celldepth[k, i]) - ugE + B[k] * sind(h)
+                N[k, i] = -ugN + B[k] * cosd(h)
+            end
+        end
+        pp = ProcessedPings(times, tunix, depth, hdg, offsets, E, N, zeros(31, nt),
+            celldepth, :down, fill((1, 2, 4), nt))
+        pingmean0 = [mean(pp.E[:, i]) for i in 1:nt]
+
+        b = shear_bias(pp; min_count=100)
+        @test b.slope_along ≈ strue rtol = 0.15
+        @test abs(b.slope_cross) < 5e-5
+        @test b.heading_concentration < 0.5
+
+        dacdf = DataFrame(yo=1:nyo,
+            t_start=[times[(y-1)*npy+1] for y in 1:nyo],
+            t_end=[times[y*npy] for y in 1:nyo],
+            t_mid=[times[(y-1)*npy+npy÷2] for y in 1:nyo],
+            u=[mean(u_o.(depth[(y-1)*npy+1:y*npy])) * 1.0 for y in 1:nyo],
+            v=zeros(nyo))
+        # DAC here is the time-mean of u_o along the track (east component only)
+        sh0 = solve_shear(pp, dacdf)
+        g0 = sh0.nobs .>= 4
+        err0 = maximum(abs.(sh0.u[g0] .- u_o.(sh0.z[g0])))
+
+        slopes = calibrate_shear_bias!(pp; passes=1, min_count=100)
+        @test abs(slopes[end]) < 1e-8                # exact in one pass at full coverage
+        pingmean1 = [mean(pp.E[:, i]) for i in 1:nt]
+        @test maximum(abs.(pingmean1 .- pingmean0)) < 1e-12   # inverse content untouched
+
+        sh1 = solve_shear(pp, dacdf)
+        g1 = sh1.nobs .>= 4
+        err1 = maximum(abs.(sh1.u[g1] .- u_o.(sh1.z[g1])))
+        @test err1 < 0.05
+        @test err1 < 0.6 * err0                      # injected tilt removed
+    end
+
+    if isfile(joinpath(M38_DIR, "ad2cp/102381_sea064_M38/sea064_M38.ad2cp")) && isdir(M38_NAV)
+        @testset "M38 acceptance: shear-bias calibration" begin
+            a0 = read_ad2cp(joinpath(M38_DIR, "ad2cp/102381_sea064_M38/sea064_M38.ad2cp"))
+            a = a0[1:2:length(a0)]                   # subsample for test runtime
+            nav = load_seaexplorer_nav(M38_NAV)
+            qc!(a)
+            decl = magnetic_declination(nav, a.t)
+            p = process_pings(a; lat=69.5, declination=decl)
+            b = shear_bias(p)
+            @test -7e-4 < b.slope_along < -2e-4      # the documented M38 bias
+            @test abs(b.slope_cross) < 1e-4
+            @test b.heading_concentration < 0.6
+            slopes = calibrate_shear_bias!(p; passes=1)
+            @test abs(slopes[end]) < 1e-6            # removed exactly
+            # residual pairwise bias bounded at every depth band
+            nk = length(p.offsets)
+            for (z1, z2) in ((0, 200), (200, 500), (500, 1000))
+                s = 0.0; n = 0
+                for i in 1:length(p)
+                    h = p.heading[i]
+                    isfinite(h) || continue
+                    sh, ch = sind(h), cosd(h)
+                    for k in 1:nk-1
+                        (isfinite(p.E[k, i]) && isfinite(p.N[k, i]) &&
+                         isfinite(p.E[k+1, i]) && isfinite(p.N[k+1, i])) || continue
+                        z = (p.celldepth[k, i] + p.celldepth[k+1, i]) / 2
+                        (isfinite(z) && z1 <= z < z2) || continue
+                        s += (p.E[k+1, i] - p.E[k, i]) * sh + (p.N[k+1, i] - p.N[k, i]) * ch
+                        n += 1
+                    end
+                end
+                n > 10_000 && @test abs(s / n) < 2e-4
+            end
+            @info "M38 shear-bias: slope $(round(b.slope_along, sigdigits=3)) s⁻¹ " *
+                  "(cross $(round(b.slope_cross, sigdigits=2))), residual " *
+                  "$(round(slopes[end], sigdigits=2))"
         end
     end
 

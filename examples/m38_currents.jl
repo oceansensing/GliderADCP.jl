@@ -42,6 +42,8 @@ qstats = qc!(adcp)
 decl = magnetic_declination(nav, adcp.t)
 @info "    declination $(round(nanminimum(decl), digits=2))..$(round(nanmaximum(decl), digits=2)) °E"
 pings = process_pings(adcp; lat=LAT0, declination=decl)
+bslopes = calibrate_shear_bias!(pings)               # range-dependent bias (Phase 7)
+@info "    shear-bias slope $(round(bslopes[1], sigdigits=3)) s⁻¹ → residual $(round(bslopes[end], sigdigits=2))"
 dac = compute_dac(nav)
 btv = bt_velocity(adcp; max_range=28.0, declination=magnetic_declination(nav, adcp.bt.t))
 @info "    $(nrow(dac)) DAC segments, $(nrow(btv)) bottom-track fixes"

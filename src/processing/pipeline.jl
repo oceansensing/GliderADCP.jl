@@ -7,14 +7,16 @@
 Solver-ready product of the Layer-2 chain: earth-frame water velocities **relative to
 the glider** on a common vertical-offset grid, with absolute cell depths.
 
-Fields: `time`, `t` (unix s), `depth` (glider depth per ping, m +down), `offsets`
-(m, +down, length ngrid), `E`, `N`, `U` (ngrid × ntime, m/s), `celldepth`
-(ngrid × ntime, m = glider depth + offset), `look`, `beams` (per-ping 3-beam selection).
+Fields: `time`, `t` (unix s), `depth` (glider depth per ping, m +down), `heading`
+(true heading per ping, deg, declination applied), `offsets` (m, +down, length ngrid),
+`E`, `N`, `U` (ngrid × ntime, m/s), `celldepth` (ngrid × ntime, m = glider depth +
+offset), `look`, `beams` (per-ping 3-beam selection).
 """
 struct ProcessedPings
     time::Vector{DateTime}
     t::Vector{Float64}
     depth::Vector{Float64}
+    heading::Vector{Float64}
     offsets::Vector{Float64}
     E::Matrix{Float64}
     N::Matrix{Float64}
@@ -63,7 +65,10 @@ function process_pings(a::AD2CPData; lat=45.0, look::Symbol=:auto, declination=0
         offsets)
     gd = glider_depth(a; lat)
     celldepth = offs .+ gd'                      # ngrid × ntime
-    ProcessedPings(copy(a.time), copy(a.t), gd, offs, E, N, U, celldepth, lk, used)
+    decl(i) = declination isa Number ? Float64(declination) : Float64(declination[i])
+    hdg = [isfinite(a.heading[i]) ? Float64(a.heading[i]) + decl(i) : NaN
+           for i in 1:length(a)]
+    ProcessedPings(copy(a.time), copy(a.t), gd, hdg, offs, E, N, U, celldepth, lk, used)
 end
 
 """

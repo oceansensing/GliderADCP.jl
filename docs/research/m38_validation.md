@@ -106,3 +106,38 @@ along-track bias profile b(r) before differencing (real ocean shear averages out
 track-frame mission mean under varied headings), and/or the gliderad2cp
 displacement-regression form; acceptance = shear-vs-inverse tilt collapse and drift-test
 parity.
+
+## Shear-bias correction: implementation and what it does (and doesn't) fix (2026-07-07)
+
+Implemented as `shear_bias` / `apply_shear_bias!` / `calibrate_shear_bias!`:
+
+- **Estimator**: mission-mean of the *adjacent-pair differences* of track-frame relative
+  velocities — the exact sample population the shear estimator consumes (with partial
+  coverage, mean-of-differences ≠ difference-of-means, so the earlier per-offset mean
+  profile under-corrected). Pair differences are integrated to a mean-removed bias
+  profile B(offset). An optional `velocity_scaled=true` form fits bias ∝ ping
+  through-water speed (it did not outperform the plain form on M38).
+- **Application** re-demeans the subtracted profile over each ping's finite cells, so
+  ping-mean velocities are unchanged **by construction** — the inverse's glider-velocity
+  and DAC content is untouched (verified: median profile change 3 mm/s).
+- **M38 calibration**: slope −3.9…−4.1×10⁻⁴ s⁻¹ along-track, cross-track ~10⁻⁶,
+  heading concentration R = 0.23 (safely diverse). One pass removes it to machine zero,
+  and the **residual pairwise bias is < 1×10⁻⁴ s⁻¹ in every cell-depth band** (was
+  ≈ −4×10⁻⁴ uniformly; also verified depth-stratified: −3.0…−3.8×10⁻⁴ before).
+
+Effect on M38 solutions: shear-vs-inverse r_u 0.582 → 0.648, rms 0.217 → 0.197 m/s;
+per-yo tilt median −4.6 → −3.3×10⁻⁴ s⁻¹; surface-drift bias of the shear top
++0.111 → +0.087 m/s. Dive/climb and DAC-closure metrics of the inverse unchanged.
+
+**What the remaining disagreement is (investigated to closure):** after correction the
+shear *samples* are provably unbiased (< 10⁻⁴ s⁻¹ at every depth), the bin statistic is
+not the cause (mean and median give identical tilt), and the discrepancy vs the inverse
+concentrates at 200–700 m as per-yo *integration drifts* of ±0.1–0.3 m/s (e.g. a yo
+whose raw relative velocity is constant to ±0.01 from 215–505 m shows a −0.2 m/s shear
+drift while the inverse stays flat). The residual median tilt (−3.3×10⁻⁴ s⁻¹ ≈ 3× the
+median's standard error given the ±1.3×10⁻³ IQR) is the noise-skew of those random
+walks, not a removable sample bias. This is the intrinsic error-propagation difference
+between the methods: **integration accumulates what the inverse localizes.** The shear
+product is retained as a corrected, second-opinion diagnostic; the inverse (+ bottom
+track) remains the reference. Possible future incremental gains: per-cast integration
+with cast averaging (halves drift variance), overlap-constrained integration.

@@ -53,6 +53,7 @@ export ShearOptions, shear_segment, integrate_shear, solve_shear
 export magnetic_declination, grid_profiles, export_sections
 export load_pnor, slocum_nav, dac_from_slocum, time_in_bin, plot_sections
 export read_ad2cp
+export shear_bias, apply_shear_bias!, calibrate_shear_bias!
 
 """
     plot_sections(panels; colorrange=(-0.5, 0.5), colormap=:balance, figsize=...)
@@ -85,6 +86,7 @@ include("processing/binmap.jl")
 include("processing/dac.jl")       # depth-averaged current from nav (DR/GPS), surface drift
 include("processing/declination.jl")
 include("processing/pipeline.jl")  # ProcessedPings orchestration (Layer 2-3 chain)
+include("processing/shearbias.jl") # range-dependent bias calibration
 
 # ---- Layer 4: velocity solutions ----------------------------------------------------
 include("solutions/shear.jl")

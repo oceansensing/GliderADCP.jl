@@ -141,3 +141,28 @@ between the methods: **integration accumulates what the inverse localizes.** The
 product is retained as a corrected, second-opinion diagnostic; the inverse (+ bottom
 track) remains the reference. Possible future incremental gains: per-cast integration
 with cast averaging (halves drift variance), overlap-constrained integration.
+
+## The "suspiciously quiet surface" question (2026-07-07)
+
+Concern: the inverse's 0–30 m velocities look low. Findings:
+
+1. **Not a solver artifact.** Top-bin values and the drift comparison are insensitive to
+   the smoothness weight (0.2/1/5 identical to 3 decimals), bin size (dz 5 vs 10 m), and
+   looser surface QC (2-m mask, keep first cell: med|u_top| 0.026 → 0.035, drift
+   agreement slightly worse). Near-surface bins do carry ~2× the within-ping noise
+   (waves; 0.022 vs 0.009 m/s std) and ~3× fewer samples.
+2. **Independent ground truth agrees.** Surface GPS drift vs 0–30 m inverse bins:
+   med|Δ| = 0.040 m/s, bias −0.023, across 126 yos. The drift itself is weak: median
+   0.038 m/s (p90 0.24).
+3. **The surface flow was persistent, not inertial.** Rotary autocorrelation of the
+   545 drift vectors: |ρ| = 0.5–0.8 out to 25 h with a weak clockwise drift (−20° at
+   the 12.8-h inertial period, not the −360° a rotating inertial current would give).
+   November basin interior with a deep mixed layer: the quiet segment-mean surface is
+   real at surfacing times.
+4. **Honest caveat (the valid core of the intuition):** all our products — inverse,
+   shear, DAC, and the drift matching — are yo-segment means. Currents with timescales
+   shorter than a yo (storm-forced inertial bursts; drift p90 shows 0.2+ m/s events)
+   vector-average toward zero and are under-represented. Resolving them needs a
+   time-resolved estimator (per-cast solves are noise-limited in the top bins with only
+   ~5–10 pings; a rotary/Kalman formulation à la Stevens-Haas et al. 2022 is the proper
+   future tool).

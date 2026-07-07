@@ -778,6 +778,52 @@ end
         end
     end
 
+    @testset "vertical velocity product" begin
+        # U_rel = w_ocean − w_glider ⇒ vertical_velocity recovers w_ocean exactly
+        w_o(z) = 0.01 * sin(2π * z / 120)
+        nt = 400
+        t0 = DateTime(2022, 11, 4)
+        times = t0 .+ Second.(10 .* (0:nt-1))
+        tunix = datetime2unix.(times)
+        depth = [10 + 180 * (1 - abs(1 - 2i / nt)) for i in 1:nt]
+        wg = fill(NaN, nt)
+        for i in 2:nt-1
+            wg[i] = -(depth[i+1] - depth[i-1]) / (tunix[i+1] - tunix[i-1])
+        end
+        offsets = collect(0.0:1.0:30.0)
+        celldepth = offsets .+ depth'
+        U = Matrix{Float64}(undef, 31, nt)
+        for i in 1:nt, k in 1:31
+            U[k, i] = w_o(celldepth[k, i]) - (isfinite(wg[i]) ? wg[i] : 0.0)
+        end
+        pp = ProcessedPings(times, tunix, depth, fill(90.0, nt), offsets,
+            zeros(31, nt), zeros(31, nt), U, celldepth, :down, fill((1, 2, 4), nt))
+        w = vertical_velocity(pp)
+        err = [abs(w[k, i] - w_o(celldepth[k, i])) for k in 1:31, i in 2:nt-1
+               if isfinite(w[k, i])]
+        @test length(err) > 5000
+        @test maximum(err) < 1e-10
+    end
+
+    if isfile(joinpath(M38_DIR, "ad2cp/102381_sea064_M38/sea064_M38.ad2cp"))
+        @testset "M38 acceptance: w product + compass field check" begin
+            a = read_ad2cp(joinpath(M38_DIR, "ad2cp/102381_sea064_M38/sea064_M38.ad2cp"))
+            tbl, ptp = compass_field_check(a)
+            @test nrow(tbl) >= 8
+            @test 0 <= ptp < 0.5
+            @info "M38 compass |B| heading variation: $(round(100ptp, digits=1))% peak-to-peak"
+            qc!(a)
+            p = process_pings(a[1:5:length(a)]; lat=69.5)
+            w = vertical_velocity(p)
+            fw = filter(isfinite, vec(w))
+            @test length(fw) > 50_000
+            @test abs(median(fw)) < 0.02              # ocean w ≈ 0 in the median
+            @test quantile(abs.(fw), 0.9) < 0.15
+            @info "M38 w_water: median $(round(median(fw), digits=4)) m/s, " *
+                  "p90|w| $(round(quantile(abs.(fw), 0.9), digits=3))"
+        end
+    end
+
     @testset "Aqua quality assurance" begin
         import Aqua
         Aqua.test_all(GliderADCP; ambiguities=false)

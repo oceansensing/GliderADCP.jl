@@ -10,7 +10,7 @@ and the Visbeck (2002) **least-squares inverse method**
 plus bottom-track and surface-drift constraints, built from first principles in
 independent layers.
 
-**Status:** Phases 1–6 implemented and tested (243 tests, including acceptance runs
+**Status:** Phases 1–7 implemented and tested (264 tests, including acceptance runs
 against a full SeaExplorer mission): I/O (**native `.ad2cp` binary reader — bit-identical
 to the MIDAS export, no MIDAS/Windows needed** — plus MIDAS netCDF incl. bottom track,
 SeaExplorer gli/pld parsers, the `\$PNOR` real-time stream, and Slocum tables),

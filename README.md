@@ -10,12 +10,15 @@ and the Visbeck (2002) **least-squares inverse method**
 plus bottom-track and surface-drift constraints, built from first principles in
 independent layers.
 
-**Status:** Phase 1 (I/O: MIDAS netCDF incl. bottom track, SeaExplorer gli/pld parsers)
-and the Phase 2 core (sound-speed correction, QC, exact 3-beam beam→XYZ→ENU transform,
-isobaric regridding) are implemented and tested (112 tests, including acceptance runs
-against a full SeaExplorer mission). See [PLAN.md](PLAN.md) for the research-backed
-roadmap and [docs/reference_dataset.md](docs/reference_dataset.md) for the reference
-dataset.
+**Status:** Phases 1–3 implemented and tested (134 tests, including acceptance runs
+against a full SeaExplorer mission): I/O (MIDAS netCDF incl. bottom track, SeaExplorer
+gli/pld parsers), sound-speed correction, QC, the exact 3-beam beam→XYZ→ENU transform,
+isobaric regridding, and depth-averaged current + surface drift from navigation.
+Cross-validated against `gliderad2cp` ground truth (beam→XYZ machine-exact; ENU to
+3e-7 m/s; regrid r = 0.996 at low roll, where the residual is their small-angle
+cell-depth approximation). Next: the velocity solutions (shear + inverse with DAC and
+bottom-track constraints). See [PLAN.md](PLAN.md) for the research-backed roadmap and
+[docs/reference_dataset.md](docs/reference_dataset.md) for the reference dataset.
 
 ```julia
 using GliderADCP
@@ -23,4 +26,5 @@ adcp = load_ad2cp("sea064_M38.ad2cp.00000.nc")     # Data/Average + Data/Average
 nav  = load_seaexplorer_nav("delayed/nav/logs")     # gli files → GPS/DR segments
 qc!(adcp)                                           # correlation/amplitude/SNR/… masks
 E, N, U, offsets, beams = enu_on_isobars(adcp)      # relative velocities, earth frame
+dac  = compute_dac(nav)                             # per-yo depth-averaged current
 ```

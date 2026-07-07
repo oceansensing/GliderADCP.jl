@@ -45,6 +45,7 @@ export beam_unit_vectors, xyz_from_beams, select_beams, head2vehicle,
 export QCThresholds, qc!, bt_valid
 export soundspeed_from_ctd, soundspeed_correction, apply_soundspeed!
 export vertical_cosines, offset_grid, regrid_beams, enu_on_isobars
+export compute_dac, surface_drift, lonlat_to_dxdy
 
 # ---- Layer 0: types & configuration ------------------------------------------------
 include("types.jl")

@@ -283,6 +283,47 @@ end
         end
     end
 
+    @testset "compute_dac: synthetic current recovery" begin
+        # Build a nav track: fix → 1 h submerged DR (currents ignored) → fix displaced
+        # by current × duration → next dive. DAC must recover the prescribed current.
+        u_true, v_true = 0.12, -0.07
+        lat0, lon0 = 70.0, 2.0
+        t0 = DateTime(2022, 11, 4)
+        times = DateTime[]; lons = Float64[]; lats = Float64[]
+        dr = Int8[]; depth = Float64[]
+        # pre-dive fix
+        push!(times, t0); push!(lons, lon0); push!(lats, lat0); push!(dr, 0); push!(depth, 0.0)
+        # submerged: DR walks east at 0.3 m/s through water, 3600 s, 60 records
+        T = 3600.0
+        for k in 1:60
+            t = k * T / 60
+            push!(times, t0 + Second(round(Int, t)))
+            push!(lons, lon0 + rad2deg(0.3t / (6.371e6 * cosd(lat0))))
+            push!(lats, lat0)
+            push!(dr, 1)
+            push!(depth, 100.0)
+        end
+        # surfacing fix: DR endpoint + current drift over T (+30 s fix delay)
+        dx, dy = u_true * (T + 30), v_true * (T + 30)
+        lon_dr, lat_dr = lons[end], lats[end]
+        push!(times, t0 + Second(round(Int, T + 30)))
+        push!(lons, lon_dr + rad2deg(dx / (6.371e6 * cosd(lat0))))
+        push!(lats, lat_dr + rad2deg(dy / 6.371e6))
+        push!(dr, 0); push!(depth, 0.0)
+        nav = GliderNav(times, datetime2unix.(times), lons, lats,
+            fill(90.0, length(times)), zeros(length(times)), zeros(length(times)),
+            zeros(length(times)), depth, fill(Int16(110), length(times)), dr,
+            fill(-1.0, length(times)), DataFrame())
+        dac = compute_dac(nav; min_duration=100.0)
+        @test nrow(dac) == 1
+        @test dac.u[1] ≈ u_true atol = 1e-3
+        @test dac.v[1] ≈ v_true atol = 1e-3
+        @test dac.duration[1] ≈ T + 30 atol = 1.0
+        @test dac.maxdepth[1] == 100.0
+        # too-short segments are rejected by default QC
+        @test nrow(compute_dac(nav; min_duration=7200.0)) == 0
+    end
+
     # ---------------- acceptance tests on local reference data ----------------
 
     if isfile(M38_NC)
@@ -378,6 +419,115 @@ end
         end
     else
         @info "M48 sample netCDF not found — skipping M48 acceptance tests"
+    end
+
+    if isdir(M38_NAV)
+        @testset "M38 acceptance: DAC" begin
+            nav = load_seaexplorer_nav(M38_NAV)
+            dac = compute_dac(nav)
+            @test 120 <= nrow(dac) <= 200
+            spd = hypot.(dac.u, dac.v)
+            @test median(spd) < 0.4                 # Lofoten Basin: moderate currents
+            @test quantile(spd, 0.95) < 0.8
+            @test all(dac.duration .> 600)
+            drift = surface_drift(nav)
+            @test nrow(drift) > 50
+            @info "M38 DAC: $(nrow(dac)) segments, median |DAC| = " *
+                  "$(round(median(spd), digits=3)) m/s; $(nrow(drift)) surface-drift pairs"
+        end
+    end
+
+    GAD2CP_REF = joinpath(dirname(@__DIR__), "validation", "gliderad2cp_reference",
+        "shear_out.nc")
+    if isfile(GAD2CP_REF)
+        @testset "gliderad2cp parity (SEA055 ground truth)" begin
+            NCDataset(GAD2CP_REF) do ds
+                g2(v) = coalesce.(Array(ds[v][:, :]), NaN)
+                g1(v) = Float64.(coalesce.(Array(ds[v][:]), NaN))
+                V = [g2("V$b") for b in 1:4]                 # isobar-regridded beams
+                Xr, Yr, Zr = g2("X"), g2("Y"), g2("Z")
+                Er, Nr, Ur = g2("E"), g2("N"), g2("U")
+                H, P, R = g1("Heading"), g1("Pitch"), g1("Roll")
+
+                # (a) transform parity: their beam synthesis makes the 4-beam set exactly
+                # self-consistent, so our LS solve must reproduce their X,Y,Z and our
+                # H·P rotation their E,N,U — to numerical precision.
+                e = beam_unit_vectors((47.5, 25.0, 47.5, 25.0), (0.0, -90.0, 180.0, 90.0))
+                E4 = permutedims(hcat(e...))
+                S4 = (E4' * E4) \ E4'
+                dxyz = 0.0; denu = 0.0; ncmp = 0
+                for i in 1:7:size(V[1], 2)
+                    (isfinite(H[i]) && isfinite(P[i]) && isfinite(R[i])) || continue
+                    Rm = rotmat_xyz2enu(H[i], P[i], R[i])    # 'top' mount ⇒ F = I
+                    for k in 1:size(V[1], 1)
+                        b = (V[1][k, i], V[2][k, i], V[3][k, i], V[4][k, i])
+                        (all(isfinite, b) && isfinite(Xr[k, i]) && isfinite(Er[k, i])) ||
+                            continue
+                        v = S4 * collect(b)
+                        w = Rm * v
+                        dxyz = max(dxyz, abs(v[1] - Xr[k, i]), abs(v[2] - Yr[k, i]),
+                            abs(v[3] - Zr[k, i]))
+                        denu = max(denu, abs(w[1] - Er[k, i]), abs(w[2] - Nr[k, i]),
+                            abs(w[3] - Ur[k, i]))
+                        ncmp += 1
+                    end
+                end
+                @test ncmp > 5_000
+                @test dxyz < 1e-12          # machine-exact beam solve
+                @test denu < 1e-6           # Float32 attitude → trig rounding only
+                @info "gliderad2cp transform parity: $ncmp samples, " *
+                      "max|ΔXYZ| = $(round(dxyz, sigdigits=3)), " *
+                      "max|ΔENU| = $(round(denu, sigdigits=3)) m/s"
+
+                # (b) regrid parity: our isobaric regrid from their native-grid beams vs
+                # their V2/V4 (never synthetic). Their per-beam depths use small-angle
+                # approximations (exact only at roll=0), so agreement is close, not exact.
+                time = DateTime.(coalesce.(Array(ds["time"][:]), DateTime(1970)))
+                nt = length(H)
+                cfg = AD2CPConfig(0, 1000.0, (47.5, 25.0, 47.5, 25.0),
+                    (0.0, -90.0, 180.0, 90.0), fill(NaN, 4, 4), 30,
+                    Float64(ds.attrib["avg_cellSize"]),
+                    Float64(ds.attrib["avg_blankingDistance"]), :beam, 2.5, 0.0, 0.0, 0.0,
+                    Dict{String,Any}())
+                vel = Array{Float32}(undef, 30, 4, nt)
+                for b in 1:4
+                    vel[:, b, :] = Float32.(g2("VelocityBeam$b"))
+                end
+                a = AD2CPData(time, datetime2unix.(time),
+                    Float64.(coalesce.(Array(ds["Velocity Range"][:]), NaN)), vel,
+                    fill(NaN32, 30, 4, nt), fill(NaN32, 30, 4, nt),
+                    Float32.(H), Float32.(P), Float32.(R),
+                    g1("Pressure"), fill(NaN32, nt), Float32.(g1("SpeedOfSound")),
+                    fill(NaN32, 3, nt), fill(NaN32, 3, nt),
+                    zeros(nt), zeros(nt), zeros(nt), cfg, nothing)
+                offsets = -g1("depth_offset")                # ours: signed positive down
+                Vours, _, _ = regrid_beams(a; look=:up, offsets)
+                # gliderad2cp assigns cell depths with small-angle formulas that are exact
+                # only at roll = 0; we use the exact rotated beam geometry. Agreement is
+                # therefore near-perfect at low roll and degrades as |roll| grows — assert
+                # both the overall closeness and the sharp low-roll equivalence.
+                for b in (2, 4)
+                    Vb = Vours[:, b, :]
+                    x = Float64[]; y = Float64[]; lowroll = Bool[]
+                    for i in 1:nt, k in 1:size(Vb, 1)
+                        if isfinite(Vb[k, i]) && isfinite(V[b][k, i])
+                            push!(x, Vb[k, i]); push!(y, V[b][k, i])
+                            push!(lowroll, isfinite(R[i]) && abs(R[i]) < 1)
+                        end
+                    end
+                    d = abs.(x .- y)
+                    @test length(x) > 100_000
+                    @test median(d) < 0.005
+                    @test mean(d .< 0.01) > 0.9
+                    rl = cor(x[lowroll], y[lowroll])
+                    @test rl > 0.99                      # exact-geometry equivalence at roll≈0
+                    @info "regrid parity beam $b: n=$(length(x)), r_all=$(round(cor(x, y), digits=4)), " *
+                          "r_lowroll=$(round(rl, digits=4)), med|Δ| = $(round(median(d), sigdigits=3)) m/s"
+                end
+            end
+        end
+    else
+        @info "gliderad2cp reference outputs not found — skipping parity tests"
     end
 
 end

@@ -203,3 +203,21 @@ time-in-bin weighted referencing:
 ## F. Ground truth for cross-validation
 
 See `validation/gliderad2cp_reference/README.md` (inputs + outputs + checkpoint numbers).
+
+## G. Parity results of the Julia implementation (2026-07-06, GliderADCP.jl tests)
+
+On the SEA055 ground truth (37k+ subsampled cells):
+
+- **Beam→XYZ**: our exact least-squares solve reproduces their X, Y, Z to
+  max|Δ| = 2.2e-16 m/s — numerically identical (their beam-synthesis trick *is* the
+  exact 3-beam inversion, confirming §C-Stage1-6).
+- **XYZ→ENU**: max|Δ| = 2.6e-7 m/s (pure Float32-attitude trig rounding) — our `H·P`
+  composition is the same rotation as their element-wise `M`.
+- **Isobaric regrid**: from their native-grid beams, beam-2/4 agreement is
+  r = 0.996, med|Δ| ≈ 5e-4 m/s for |roll| < 1°, degrading to r ≈ 0.82,
+  med|Δ| ≈ 0.02 m/s for |roll| > 5° (and similarly at |pitch| > 30°). Cause: their
+  per-beam cell-depth formulas (§C-Stage1-4, e.g. `arccos(cos(25°−R)·cos P)`) are
+  small-angle approximations that are exact only at roll = 0; GliderADCP.jl uses the
+  exact rotated beam geometry (`−(R·F·e)_z`). The Julia values are the physically
+  correct ones; expect small systematic differences on rolled/steep pings when
+  cross-validating.

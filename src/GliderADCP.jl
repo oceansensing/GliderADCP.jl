@@ -36,6 +36,7 @@ using Interpolations
 using GibbsSeaWater
 using NaNStatistics
 using Krylov
+using SatelliteToolboxGeomagneticField: igrfd
 
 export AD2CPConfig, AD2CPData, BottomTrackData, GliderNav
 export load_ad2cp, load_seaexplorer_nav, load_seaexplorer_pld, seaexplorer_files
@@ -49,6 +50,7 @@ export compute_dac, surface_drift, lonlat_to_dxdy
 export ProcessedPings, process_pings, glider_depth, segment_indices, bt_velocity
 export InverseOptions, invert_segment, solve_inverse
 export ShearOptions, shear_segment, integrate_shear, solve_shear
+export magnetic_declination, grid_profiles, export_sections
 
 # ---- Layer 0: types & configuration ------------------------------------------------
 include("types.jl")
@@ -68,6 +70,7 @@ include("processing/binmap.jl")
 
 # ---- Layer 3: platform kinematics ---------------------------------------------------
 include("processing/dac.jl")       # depth-averaged current from nav (DR/GPS), surface drift
+include("processing/declination.jl")
 include("processing/pipeline.jl")  # ProcessedPings orchestration (Layer 2-3 chain)
 
 # ---- Layer 4: velocity solutions ----------------------------------------------------

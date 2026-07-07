@@ -10,7 +10,7 @@ and the Visbeck (2002) **least-squares inverse method**
 plus bottom-track and surface-drift constraints, built from first principles in
 independent layers.
 
-**Status:** Phases 1–4 implemented and tested (153 tests, including acceptance runs
+**Status:** Phases 1–5 (core) implemented and tested (169 tests, including acceptance runs
 against a full SeaExplorer mission): I/O (MIDAS netCDF incl. bottom track, SeaExplorer
 gli/pld parsers), sound-speed correction, QC, the exact 3-beam beam→XYZ→ENU transform,
 isobaric regridding, DAC + surface drift from navigation, and **both velocity solvers**
@@ -18,7 +18,13 @@ isobaric regridding, DAC + surface drift from navigation, and **both velocity so
 constraints). Validated three ways: machine-exact parity against `gliderad2cp` ground
 truth; synthetic-truth recovery for both solvers; and an independent real-data check —
 the DAC-only inverse's glider velocities match unseen bottom-track ground truth at
-r = 0.97 (median difference ≈ 7 cm/s). See [PLAN.md](PLAN.md) for the roadmap.
+r = 0.97 (median difference ≈ 7 cm/s). A full-mission example
+([examples/m38_currents.jl](examples/m38_currents.jl)) produces DAC+bottom-track
+inverse and shear U/V sections with IGRF declination, provenance netCDF export, and
+dive/climb consistency of 2 cm/s; the vertical-structure validation against the prior
+Python processing is documented in
+[docs/research/m38_validation.md](docs/research/m38_validation.md).
+See [PLAN.md](PLAN.md) for the roadmap.
 
 ```julia
 using GliderADCP

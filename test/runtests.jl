@@ -325,6 +325,57 @@ end
         @test nrow(compute_dac(nav; min_duration=7200.0)) == 0
     end
 
+    @testset "end-to-end structure orientation (depth-varying flow through geometry)" begin
+        # A pure baroclinic sign flip preserves depth means, dive/climb consistency and
+        # DAC closure — so this dedicated test drives a depth-VARYING flow through the
+        # full beam forward model and requires the recovered structure to be upright.
+        θ = (47.5, 25.0, 47.5, 25.0)
+        φ = (0.0, -90.0, 180.0, 90.0)
+        e = beam_unit_vectors(θ, φ)
+        F = head2vehicle(:down)
+        cfg = AD2CPConfig(1, 1000.0, θ, φ, fill(NaN, 4, 4), 15, 2.0, 0.7, :beam, 2.5,
+            0.0, 0.0, 38.0, Dict{String,Any}())
+        u_o(z) = 0.001 * z
+        ug = 0.25
+        nt = 400
+        t0 = DateTime(2022, 11, 4)
+        depth = [10 + 180 * (1 - abs(1 - 2i / nt)) for i in 1:nt]
+        pitchv = [i <= nt ÷ 2 ? -17.0 : 17.0 for i in 1:nt]
+        rng = collect(2.7:2.0:30.7)
+        vel = fill(NaN32, 15, 4, nt)
+        for i in 1:nt
+            R = rotmat_xyz2enu(90.0, pitchv[i], 0.0)
+            for b in 1:4
+                eb = R * F * e[b]
+                for k in 1:15
+                    z = depth[i] + (rng[k] / cosd(25.0)) * (-eb[3])
+                    vel[k, b, i] = Float32(eb[1] * (u_o(z) - ug))
+                end
+            end
+        end
+        tv = t0 .+ Second.(10 .* (0:nt-1))
+        a = AD2CPData(tv, datetime2unix.(tv), rng, vel, fill(80f0, 15, 4, nt),
+            fill(90f0, 15, 4, nt), fill(90f0, nt), Float32.(pitchv), fill(0f0, nt),
+            Float64.(depth), fill(7f0, nt), fill(1500f0, nt),
+            repeat(Float32[0, 0, -0.95], 1, nt), fill(NaN32, 3, nt),
+            zeros(nt), zeros(nt), collect(1.0:nt), cfg, nothing)
+        pp = process_pings(a; lat=0.0)
+        errs = Float64[]
+        for i in 1:nt, k in 1:length(pp.offsets)
+            isfinite(pp.E[k, i]) || continue
+            push!(errs, pp.E[k, i] - (u_o(pp.celldepth[k, i]) - ug))
+        end
+        @test length(errs) > 5000
+        @test maximum(abs.(errs)) < 0.005
+        dacdf = DataFrame(yo=[1], t_start=[tv[1]], t_end=[tv[end]], t_mid=[tv[nt÷2]],
+            u=[mean(u_o.(5:10:185.0))], v=[0.0])
+        inv = solve_inverse(pp, dacdf)
+        g = inv.nobs .> 20
+        slope = cov(inv.z[g], inv.u[g]) / var(inv.z[g])
+        @test 0.0007 < slope < 0.0013            # upright, right magnitude
+        @test maximum(abs.(inv.u[g] .- u_o.(inv.z[g]))) < 0.03
+    end
+
     @testset "solvers: synthetic truth recovery" begin
         # One dive+climb segment with a prescribed ocean profile and glider velocity.
         u_o(z) = 0.2 * sin(2π * z / 150) + 0.05
@@ -390,6 +441,37 @@ end
         both = intersect(inv1.z[good], sh.z[gs])
         iu = Dict(zip(inv1.z, inv1.u)); su = Dict(zip(sh.z, sh.u))
         @test maximum(abs(iu[z] - su[z]) for z in both) < 0.06
+    end
+
+    @testset "declination, gridding, export" begin
+        # IGRF sanity at two known sites
+        @test 0.5 < magnetic_declination(69.7, 5.0, DateTime(2022, 11, 15)) < 4.5
+        @test abs(magnetic_declination(40.7, -74.0, DateTime(2022, 6, 1)) - (-12.7)) < 3
+
+        prof = DataFrame(
+            yo=[1, 1, 2, 2],
+            t_mid=DateTime(2022, 11, 4) .+ Hour.([0, 0, 2, 2]),
+            z=[5.0, 15.0, 15.0, 25.0],
+            u=[0.1, 0.2, 0.3, 0.4], v=[-0.1, -0.2, -0.3, -0.4],
+            nobs=[5, 6, 7, 8])
+        sec = grid_profiles(prof)
+        @test sec.z == [5.0, 15.0, 25.0]
+        @test length(sec.t) == 2
+        @test sec.U[1, 1] == 0.1 && sec.U[2, 2] == 0.3
+        @test isnan(sec.U[3, 1])                    # depth-matched, not row-index
+        @test sec.Nobs[3, 2] == 8
+
+        mktempdir() do dd
+            f = joinpath(dd, "sec.nc")
+            export_sections(f, sec; attrs=Dict{String,Any}("mission" => "test"))
+            NCDataset(f) do ds
+                @test ds.attrib["mission"] == "test"
+                @test occursin("GliderADCP.jl", ds.attrib["source"])
+                @test size(ds["u"]) == (3, 2)
+                @test ds["u"][1, 1] ≈ 0.1
+                @test ismissing(ds["u"][3, 1])
+            end
+        end
     end
 
     # ---------------- acceptance tests on local reference data ----------------

@@ -1,3 +1,30 @@
-# Layer 5 — gridding of per-segment profiles into section products (depth × time),
-# depth-matched bin alignment, dive/climb pairing, optional DIVAnd mapping later.
-# Implemented in Phase 5.
+# Layer 5 — section gridding of long-format profile tables.
+
+"""
+    grid_profiles(prof::DataFrame) -> (t, z, U, V, Nobs)
+
+Assemble per-segment profiles (`yo, t_mid, z, u, v, nobs` — the output schema of
+[`solve_inverse`](@ref) / [`solve_shear`](@ref)) into depth × time section matrices,
+**matched by depth value** (segments whose profiles start at different depths stay
+aligned — unlike the row-index assembly in Slocum-AD2CP). Columns are ordered by
+`t_mid`; `Nobs` is 0 where a segment has no bin.
+"""
+function grid_profiles(prof::DataFrame)
+    yos = unique(prof.yo)
+    tmid = [first(prof.t_mid[prof.yo .== y]) for y in yos]
+    ord = sortperm(tmid)
+    yos, tmid = yos[ord], tmid[ord]
+    z = sort(unique(prof.z))
+    zrow = Dict(zv => k for (k, zv) in enumerate(z))
+    U = fill(NaN, length(z), length(yos))
+    V = fill(NaN, length(z), length(yos))
+    Nobs = zeros(Int, length(z), length(yos))
+    col = Dict(y => j for (j, y) in enumerate(yos))
+    for r in eachrow(prof)
+        k = zrow[r.z]; j = col[r.yo]
+        U[k, j] = r.u
+        V[k, j] = r.v
+        Nobs[k, j] = r.nobs
+    end
+    return (t=tmid, z=z, U=U, V=V, Nobs=Nobs)
+end

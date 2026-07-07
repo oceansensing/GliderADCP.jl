@@ -56,11 +56,19 @@ function _read_segment(path::AbstractString; timestamp_col::String)
 end
 
 function _read_stream(files::AbstractVector{<:AbstractString}; timestamp_col::String,
-                      fmt::DateFormat, mintime::Union{DateTime,Nothing})
+                      fmts, mintime::Union{DateTime,Nothing})
     isempty(files) && error("no SeaExplorer files to read")
     dfs = [_read_segment(f; timestamp_col) for f in files]
     df = reduce((a, b) -> vcat(a, b; cols=:union), dfs)
-    ts = [t === missing ? missing : tryparse(DateTime, t, fmt) for t in df[!, timestamp_col]]
+    parse1(t) = begin
+        t === missing && return missing
+        for fmt in fmts
+            p = tryparse(DateTime, t, fmt)
+            p === nothing || return p
+        end
+        missing
+    end
+    ts = [parse1(t) for t in df[!, timestamp_col]]
     df.time = ts
     # drop unparseable timestamps and (by default) boot-time records logged before the
     # glider's clock is set (epoch-1970 stamps, typically with Lat=Lon=0)
@@ -93,7 +101,7 @@ nav = load_seaexplorer_nav("…/delayed/nav/logs")
 function load_seaexplorer_nav(src; stream::AbstractString="gli.sub",
                               mintime::Union{DateTime,Nothing}=DateTime(2000))
     files = src isa AbstractVector ? String.(src) : seaexplorer_files(src, stream)
-    df = _read_stream(files; timestamp_col="Timestamp", fmt=_SEAEXPLORER_NAV_FMT, mintime)
+    df = _read_stream(files; timestamp_col="Timestamp", fmts=(_SEAEXPLORER_NAV_FMT,), mintime)
     time = Vector{DateTime}(df.time)
     GliderNav(time, datetime2unix.(time),
         nmea2deg.(_float_col(df, "Lon")),
@@ -124,5 +132,6 @@ pld = load_seaexplorer_pld("…/delayed/pld1/logs"; stream="legato.raw")
 function load_seaexplorer_pld(src; stream::AbstractString="pld1.raw",
                               mintime::Union{DateTime,Nothing}=DateTime(2000))
     files = src isa AbstractVector ? String.(src) : seaexplorer_files(src, stream)
-    _read_stream(files; timestamp_col="PLD_REALTIMECLOCK", fmt=_SEAEXPLORER_PLD_FMT, mintime)
+    _read_stream(files; timestamp_col="PLD_REALTIMECLOCK",
+        fmts=(_SEAEXPLORER_PLD_FMT, _SEAEXPLORER_NAV_FMT), mintime)
 end

@@ -132,6 +132,42 @@ the ones the solvers should see. Loosening the surface mask to 2 m and keeping t
 cell was tested and does **not** change the near-surface answer (it slightly degrades
 the surface-drift agreement) — the defaults are not hiding signal.
 
+### Which cells actually get used?
+
+All configured cells enter, but QC is applied **per sample** (cell × beam × ping), so
+cell usage is adaptive: the first cell is dropped unconditionally (transducer ringing),
+and far cells fall away wherever the echo decorrelates. Inspect this on your mission
+with [`cell_quality`](@ref):
+
+```julia
+q = cell_quality(adcp)     # per cell & beam: median corr/amp, survival fractions
+```
+
+On M38 (1 MHz, 2-m cells, clear sub-Arctic water) the structure is stark:
+
+| cell (range) | median corr (%) | survives full QC |
+|---|---|---|
+| 1 (2.7 m) | 97 | 0 % (first-cell drop) |
+| 2–6 (4.7–12.7 m) | 82–98 | 91–94 % |
+| 7 (14.7 m) | 70 | 76 % |
+| 8 (16.7 m) | 55 | 52 % |
+| 9 (18.7 m) | 39 | 35 % |
+| 12 (24.7 m) | 9 | 17 % |
+| 15 (30.7 m) | 2 | 5 % |
+
+The *effective* range here is ~15–17 m (cells 2–8), roughly half the configured 30 m —
+what survives further out are the scatterer-rich moments (plankton layers, near
+boundaries). Two practical consequences: the `nobs` column in every solver output tells
+you how much data supports each depth bin (filter on it), and the marginal far-cell
+samples that *barely* pass at 50–70 % correlation carry a disproportionate share of the
+range-dependent bias — on M38, raising the correlation threshold from 50 to 80 %
+reduces the measured shear-bias slope by ~22 % (−4.0 → −3.1×10⁻⁴ s⁻¹) at the cost of
+14 points of retention. For the inverse the default (corr ≥ 50 + calibration) is fine;
+for shear-method work, `QCThresholds(correlation=80)` plus the calibration is the
+conservative configuration. A future refinement is correlation-based *weighting* of
+samples in the inverse (per-sample noise scales as ``\sqrt{R^{-2}-1}``; Shcherbina
+et al. 2018) rather than the current pass/fail-plus-equal-weight scheme.
+
 ## 5. Declination and the ENU pings
 
 The compass reports magnetic heading; velocities need true east/north. Deployments

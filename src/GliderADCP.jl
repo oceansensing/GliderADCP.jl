@@ -43,7 +43,7 @@ export load_ad2cp, load_seaexplorer_nav, load_seaexplorer_pld, seaexplorer_files
 export nmea2deg, ncells
 export beam_unit_vectors, xyz_from_beams, select_beams, head2vehicle,
        detect_look_direction, rotmat_xyz2enu, beams_to_enu
-export QCThresholds, qc!, bt_valid
+export QCThresholds, qc!, bt_valid, cell_quality
 export soundspeed_from_ctd, soundspeed_correction, apply_soundspeed!
 export vertical_cosines, offset_grid, regrid_beams, enu_on_isobars
 export compute_dac, surface_drift, lonlat_to_dxdy

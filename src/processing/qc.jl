@@ -93,3 +93,38 @@ function bt_valid(bt::BottomTrackData; max_range::Real=Inf)
     end
     return m
 end
+
+"""
+    cell_quality(adcp; thr=QCThresholds()) -> DataFrame
+
+Per-cell, per-beam data-quality summary: median correlation and amplitude, and the
+fraction of samples that would survive each QC screen (`keep_corr`, `keep_amp`,
+`keep_all` — correlation, amplitude window, and their combination with the velocity
+cap). Run on **unmasked** data (before `qc!`) to see how ping quality varies with range
+and which cells actually contribute; after `qc!` the same call reports the surviving
+fractions. The noise floor is the pooled 0.5th amplitude percentile, as in [`qc!`](@ref).
+"""
+function cell_quality(a::AD2CPData; thr::QCThresholds=QCThresholds())
+    nc, nb, nt = size(a.vel)
+    floor_db = isfinite(thr.snr_db) ? nanpctile(a.amp, 0.5) : -Inf
+    rows = NamedTuple[]
+    for b in 1:nb, k in 1:nc
+        c = @view a.corr[k, b, :]
+        m = @view a.amp[k, b, :]
+        v = @view a.vel[k, b, :]
+        fin = findall(i -> isfinite(c[i]) && isfinite(m[i]) && isfinite(v[i]), 1:nt)
+        isempty(fin) && continue
+        n = length(fin)
+        kc = count(i -> c[i] >= thr.correlation, fin) / n
+        ka = count(i -> m[i] <= thr.amplitude_max &&
+                        (!isfinite(thr.snr_db) || m[i] >= floor_db + thr.snr_db), fin) / n
+        kall = count(i -> c[i] >= thr.correlation &&
+                          m[i] <= thr.amplitude_max &&
+                          (!isfinite(thr.snr_db) || m[i] >= floor_db + thr.snr_db) &&
+                          abs(v[i]) <= thr.velocity_max, fin) / n
+        push!(rows, (cell=k, range=a.range[k], beam=b, n=n,
+            med_corr=median(c[fin]), med_amp=median(m[fin]),
+            keep_corr=kc, keep_amp=ka, keep_all=kall))
+    end
+    return DataFrame(rows)
+end

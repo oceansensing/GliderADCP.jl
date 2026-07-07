@@ -824,6 +824,37 @@ end
         end
     end
 
+    @testset "cell_quality diagnostic" begin
+        mktempdir() do d
+            f = write_synthetic_midas(joinpath(d, "syn.ad2cp.00000.nc"); nt=8, nc=3)
+            a = load_ad2cp(f)
+            a.corr[3, :, :] .= 20.0f0            # far cell decorrelated
+            q = cell_quality(a; thr=QCThresholds(snr_db=NaN))
+            @test nrow(q) == 12                  # 3 cells × 4 beams
+            @test all(q.keep_corr[q.cell .== 3] .== 0.0)
+            @test all(q.keep_corr[q.cell .== 1] .== 1.0)
+            @test all(q.med_corr[q.cell .== 3] .== 20.0)
+        end
+    end
+
+    if isfile(joinpath(M38_DIR, "ad2cp/102381_sea064_M38/sea064_M38.ad2cp"))
+        @testset "M38 acceptance: per-cell quality structure" begin
+            a = read_ad2cp(joinpath(M38_DIR, "ad2cp/102381_sea064_M38/sea064_M38.ad2cp"))
+            q = cell_quality(a)
+            agg = combine(groupby(q, :cell), :med_corr => mean => :corr,
+                :keep_all => mean => :keep)
+            sort!(agg, :cell)
+            @test agg.corr[2] > 90               # near cells: high correlation
+            @test agg.corr[15] < 15              # far cells decorrelate (clear water)
+            @test issorted(agg.corr[5:15]; rev=true)
+            @test agg.keep[2] > 0.85
+            @test agg.keep[15] < 0.15
+            @info "M38 cell quality: med corr cell2=$(round(agg.corr[2], digits=1)) " *
+                  "→ cell8=$(round(agg.corr[8], digits=1)) → cell15=$(round(agg.corr[15], digits=1)); " *
+                  "effective range ≈ cells 2–8 (≤ ~17 m)"
+        end
+    end
+
     @testset "Aqua quality assurance" begin
         import Aqua
         Aqua.test_all(GliderADCP; ambiguities=false)

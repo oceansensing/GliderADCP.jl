@@ -3,10 +3,12 @@
 **A pure-Julia toolbox for processing Nortek AD2CP data from SeaExplorer and Slocum gliders
 into absolute ocean velocity profiles.**
 
-Status (2026-07-07): **all phases complete** (0–7; 264 tests) — see the roadmap table in
-§8 for per-phase results. Remaining: release actions (repo rename → GliderADCP.jl,
-v0.1.0 tag, General-registry registration). This document is kept as the design record;
-user-facing documentation lives in `docs/` (see the tutorial).
+Status (2026-07-07): **all phases complete** (0–7; 273 tests) — see the roadmap table in
+§8 for per-phase results. The GitHub repo and local clone are both renamed to
+`GliderADCP.jl`. Remaining: v0.1.0 tag + General-registry registration, whenever desired.
+This document is kept as the design record; user-facing documentation lives in `docs/`
+— start with [docs/src/tutorial.md](docs/src/tutorial.md) for a full scientific
+walkthrough of the pipeline.
 
 Supporting research (all verified, on disk):
 
@@ -125,8 +127,8 @@ we implement the BT constraint from day one (novel relative to both).
 
 ### 4.1 Identity & integration
 
-- Module **`GliderADCP`**, repo to be renamed `GliderADCP.jl` at registration time.
-  Julia ≥ 1.10 (LTS). MIT license (already present).
+- Module **`GliderADCP`**, repo renamed `GliderADCP.jl` (GitHub + local clone,
+  2026-07-07). Julia ≥ 1.10 (LTS). MIT license (already present).
 - Sibling, not monolith: Slocum I/O delegates to **JLDBDReader.jl**; SeaExplorer parsing
   conventions harvested from **jlglider** (eventually jlglider calls this package);
   package conventions modeled on **ATOMIXjulia.jl**.
@@ -270,8 +272,8 @@ Slocum-AD2CP); EVR/phase-unwrapping for burst modes (Shcherbina 2018); DIVAnd se
 | **3 — done (2026-07-06)** | `compute_dac` (SeaExplorer DR/GPS fix-to-fix), `surface_drift` | ✔ synthetic current recovered exactly; ✔ M38: 190/190 yos, median \|DAC\| = 0.16 m/s, 545 surface-drift pairs. DVL-style DAC (gliderad2cp) optional, deferred |
 | **4 — core done (2026-07-06)** | `solve_shear` + `solve_inverse` (`invert_segment`) with composable DAC (:ocean/:platform), bottom-track and smoothness constraints; `bt_velocity`; `ProcessedPings` pipeline | ✔ synthetic truth recovered by both methods (incl. **BT-only absolute solution with no GPS reference**); ✔ BT sign convention verified on M38 (corr(w_bt, dP/dt) = 0.90); ✔ **independent M38 validation: DAC-only inverse glider velocities vs unseen bottom track r_v = 0.97, med \|Δ\| ≈ 7 cm/s (n = 807)**; ✔ regression vs `absolute_ocean_vel.csv`: 14 matched yos, median r_u = 0.83 (differences consistent with their documented transform defects). **Remaining:** dive/climb-consistency diagnostics, full-mission method-intercomparison report, declination (IGRF) → Phase 5 |
 | **5 — core done (2026-07-07)** | IGRF declination (`magnetic_declination`), depth-matched section gridding (`grid_profiles`), provenance netCDF export (`export_sections`), full-mission example (`examples/m38_currents.jl`) | ✔ end-to-end M38: 127 yos (matches the 126 in the prior processing), dive/climb r = 0.98 (med \|Δ\| 2 cm/s), DAC closure 5 mm/s, improved U/V section figures + exports. ✔ **Vertical-structure validation vs the prior Python output resolved in our favor** — raw-data tilt checks, BT-anchored deep velocities (1.6 cm/s), surface drift, and a permanent depth-varying end-to-end synthetic test (docs/research/m38_validation.md). **Done 2026-07-07 (block 2):** time-weighted DAC referencing (shear `referencing=:timeweighted` default + inverse `dac_form=:ocean_timeweighted`), `load_pnor` real-time stream parser (M38: r = 1.0 vs netCDF over 1530 matched ensembles), `slocum_nav`/`dac_from_slocum` (JLDBDReader/ERDDAP tables), Makie package extension (`plot_sections`), Aqua QA, GitHub Actions CI, Documenter scaffold |
-| **6 — reader done (2026-07-07)** | `read_ad2cp` native binary reader (header scan + checksums + resync, DF3 average/burst, DF20 bottom track, embedded config-string parsing; `load_ad2cp` dispatches on `.ad2cp`) | ✔ **bit-identical to the MIDAS netCDF on M38**: all 124,752 ensembles (vel/amp/corr/attitude/sensors max Δ = 0) + 124,751 BT records (Δ = 0); config fully recovered; ~0.3 s for 54 MB; synthetic-binary unit tests cover resync + checksum rejection. **Remaining (release):** rename repo → GliderADCP.jl, version 0.1.0, tag + JuliaRegistrator |
-| **7 — done (2026-07-07)** | `calibrate_shear_bias!` (pairwise-difference track-frame calibration; M38 −4×10⁻⁴ s⁻¹ removed to machine zero, residual < 10⁻⁴ at all depths, inverse invariant); `vertical_velocity` (flight-model-free w = U_rel + dP/dt; M38: median −0.001 m/s, p90 2 cm/s); `compass_field_check` (M38: 2.5 % \|B\| heading variation — compass clean, eddy-yo outliers not compass artifacts); surface-velocity question investigated to closure (real quiet surface; segment-mean caveat — docs/research/m38_validation.md); DIVAnd section example (`examples/m38_divand_sections.jl`). **Deferred with rationale:** full Merckelbach flight model (the ADCP supersedes it for w and through-water velocity; revisit for AOA/performance studies), burst-mode EVR/phase-unwrapping (no burst data in any local mission; reader already parses 0x15 records), compass *correction* (diagnostic in place; correction is a research task and M38 doesn't need it) | per-feature |
+| **6 — reader done (2026-07-07)** | `read_ad2cp` native binary reader (header scan + checksums + resync, DF3 average/burst, DF20 bottom track, embedded config-string parsing; `load_ad2cp` dispatches on `.ad2cp`) | ✔ **bit-identical to the MIDAS netCDF on M38**: all 124,752 ensembles (vel/amp/corr/attitude/sensors max Δ = 0) + 124,751 BT records (Δ = 0); config fully recovered; ~0.3 s for 54 MB; synthetic-binary unit tests cover resync + checksum rejection |
+| **7 — done (2026-07-07)** | `calibrate_shear_bias!` (pairwise-difference track-frame calibration; M38 −4×10⁻⁴ s⁻¹ removed to machine zero, residual < 10⁻⁴ at all depths, inverse invariant); `vertical_velocity` (flight-model-free w = U_rel + dP/dt; M38: median −0.001 m/s, p90 2 cm/s); `compass_field_check` (M38: 2.5 % \|B\| heading variation — compass clean, eddy-yo outliers not compass artifacts); surface-velocity question investigated to closure (real quiet surface; segment-mean caveat — docs/research/m38_validation.md); DIVAnd section example (`examples/m38_divand_sections.jl`, masked by the analysis error field — no extrapolation beyond sampled coverage); `cell_quality` per-cell/beam ping-quality diagnostic (M38: effective range ~15–17 m of the configured 30 m; correlation-threshold sensitivity of the shear bias measured and documented); full documentation pass (`docs/src/tutorial.md`, `docs/src/index.md`, Documenter builds clean). **Deferred with rationale:** full Merckelbach flight model (the ADCP supersedes it for w and through-water velocity; revisit for AOA/performance studies), burst-mode EVR/phase-unwrapping (no burst data in any local mission; reader already parses 0x15 records), compass *correction* (diagnostic in place; correction is a research task and M38 doesn't need it), correlation-weighted inversion (noted as a future refinement in the tutorial) | per-feature |
 
 Each phase = one PR-sized unit with its tests; no phase starts until the previous one's
 acceptance criteria pass.
@@ -284,14 +286,17 @@ acceptance criteria pass.
 - **Nortek 25° range-gating** is firmware-dependent and undocumented in files (pers.-comm.
   provenance) — verify empirically on M38 (bottom-distance vs BT distance consistency) and
   make the assumption explicit in options.
-- **Declination model**: add IGRF via a small dependency (e.g. SatelliteToolboxGeomagneticField.jl)
-  or accept user-supplied values initially — decide in Phase 2 (start user-supplied).
+- **Declination model** — resolved (Phase 5): `magnetic_declination` uses IGRF via
+  `SatelliteToolboxGeomagneticField.jl`, with a user-supplied scalar/vector still accepted
+  everywhere it's consumed.
 - **gliderad2cp JOSS review is ongoing** — track for algorithm changes; our parity targets
   pin to commit `7fbccaf`.
 - **Slocum-AD2CP parity vs correctness**: m38_processed outputs embed that package's bugs;
   regression comparisons must model those deviations explicitly rather than chase equality.
 - **Compass calibration correction** (beyond declination) is the largest unmodeled error
-  term (von Appen 2015); Phase 7.
+  term (von Appen 2015). Phase 7 added a *diagnostic* (`compass_field_check`) — M38's
+  compass is clean (2.5 % field variation), so a deviation-correction algorithm remains
+  unimplemented pending a mission that actually needs it.
 
 ## 10. Key references
 

@@ -2,6 +2,7 @@ using GliderADCP
 using Test
 using Dates
 using DataFrames
+using CSV
 using NCDatasets
 using CodecZlib
 using Statistics
@@ -324,6 +325,73 @@ end
         @test nrow(compute_dac(nav; min_duration=7200.0)) == 0
     end
 
+    @testset "solvers: synthetic truth recovery" begin
+        # One dive+climb segment with a prescribed ocean profile and glider velocity.
+        u_o(z) = 0.2 * sin(2π * z / 150) + 0.05
+        v_o(z) = -0.1 + 0.0008 * z
+        nt = 900
+        t0 = DateTime(2022, 11, 4)
+        times = t0 .+ Second.(10 .* (0:nt-1))
+        tunix = datetime2unix.(times)
+        u_g = [0.3 * cos(2π * i / nt) - 0.1 for i in 1:nt]
+        v_g = [0.25 * sin(4π * i / nt) for i in 1:nt]
+        depth = [5 + 195 * (1 - abs(1 - 2i / nt)) for i in 1:nt]   # 5 → 200 → 5 m
+        offsets = collect(0.0:1.0:30.0)
+        celldepth = offsets .+ depth'
+        E = [u_o(celldepth[k, i]) - u_g[i] for k in 1:31, i in 1:nt]
+        N = [v_o(celldepth[k, i]) - v_g[i] for k in 1:31, i in 1:nt]
+        pp = ProcessedPings(times, tunix, depth, offsets, E, N, zeros(31, nt),
+            celldepth, :down, fill((1, 2, 4), nt))
+
+        centers = 5.0:10.0:195.0                       # DAC over glider-covered bins
+        dacu, dacv = mean(u_o.(centers)), mean(v_o.(centers))
+        dacdf = DataFrame(yo=[1], t_start=[times[1]], t_end=[times[end]],
+            t_mid=[times[nt÷2]], u=[dacu], v=[dacv])
+
+        # --- inverse, DAC-constrained ---
+        inv1 = solve_inverse(pp, dacdf)
+        @test !isempty(inv1)
+        good = inv1.nobs .> 20
+        # residual is 10-m bin discretization of the 150-m-wavelength profile
+        @test maximum(abs.(inv1.u[good] .- u_o.(inv1.z[good]))) < 0.03
+        @test maximum(abs.(inv1.v[good] .- v_o.(inv1.z[good]))) < 0.03
+
+        # --- inverse, platform-form DAC ---
+        inv2 = solve_inverse(pp, dacdf; opts=InverseOptions(dac_form=:platform))
+        # platform form constrains mean glider velocity = DAC; with our synthetic
+        # (mean u_g ≠ dac) the profile shifts by that difference — check structure only
+        g2 = inv2.nobs .> 20
+        du = inv2.u[g2] .- u_o.(inv2.z[g2])
+        @test std(du) < 0.02                            # shape right, offset allowed
+
+        # --- inverse, bottom-track only (no DAC): absolute without GPS reference ---
+        btdf = DataFrame(t=tunix[1:40:end], u=u_g[1:40:end], v=v_g[1:40:end])
+        inv3 = solve_inverse(pp, dacdf; bt=btdf,
+            opts=InverseOptions(wdac=0.0, wbt=5.0))
+        g3 = inv3.nobs .> 20
+        @test maximum(abs.(inv3.u[g3] .- u_o.(inv3.z[g3]))) < 0.03
+        @test maximum(abs.(inv3.v[g3] .- v_o.(inv3.z[g3]))) < 0.03
+        @test inv3.nbt[1] == length(tunix[1:40:end])
+
+        # --- glider velocity recovery ---
+        sol = invert_segment(E, N, celldepth, tunix, maximum(depth);
+            dacu, dacv, opts=InverseOptions())
+        @test cor(sol.ug, u_g) > 0.995
+        @test maximum(abs.(sol.ug .- u_g)) < 0.03
+
+        # --- shear method ---
+        sh = solve_shear(pp, dacdf)
+        @test !isempty(sh)
+        gs = (sh.nobs .>= 4) .&& (sh.z .< 200)
+        @test maximum(abs.(sh.u[gs] .- u_o.(sh.z[gs]))) < 0.06
+        @test maximum(abs.(sh.v[gs] .- v_o.(sh.z[gs]))) < 0.06
+
+        # shear and inverse agree with each other
+        both = intersect(inv1.z[good], sh.z[gs])
+        iu = Dict(zip(inv1.z, inv1.u)); su = Dict(zip(sh.z, sh.u))
+        @test maximum(abs(iu[z] - su[z]) for z in both) < 0.06
+    end
+
     # ---------------- acceptance tests on local reference data ----------------
 
     if isfile(M38_NC)
@@ -434,6 +502,116 @@ end
             @test nrow(drift) > 50
             @info "M38 DAC: $(nrow(dac)) segments, median |DAC| = " *
                   "$(round(median(spd), digits=3)) m/s; $(nrow(drift)) surface-drift pairs"
+        end
+    end
+
+    if isfile(M38_NC) && isdir(M38_NAV)
+        @testset "M38 acceptance: inverse vs bottom track + reference CSV" begin
+            a0 = load_ad2cp(M38_NC)
+            nav = load_seaexplorer_nav(M38_NAV)
+            dac = compute_dac(nav)
+            btv = bt_velocity(a0; max_range=28.0)
+
+            csvpath = joinpath(M38_DIR, "ad2cp/m38_processed/absolute_ocean_vel.csv")
+            ref = isfile(csvpath) ? CSV.read(csvpath, DataFrame) : nothing
+
+            # segments for the BT check: the six most bottom-track-rich yos
+            nbt_in(row) = count(t -> datetime2unix(row.t_start) <= t <=
+                                     datetime2unix(row.t_end), btv.t)
+            counts = [nbt_in(row) for row in eachrow(dac)]
+            segs_bt = sortperm(counts; rev=true)[1:6]
+            @test minimum(counts[segs_bt]) > 50
+            # segments for the CSV regression: yos whose window contains a reference
+            # time_midpoint (their "midpoint" may be an end time — window matching)
+            segs_csv = Int[]
+            if ref !== nothing
+                for (si, row) in enumerate(eachrow(dac))
+                    t1 = datetime2unix(row.t_start) - 600
+                    t2 = datetime2unix(row.t_end) + 600
+                    any(t -> t1 <= t <= t2, ref.time_midpoint) && push!(segs_csv, si)
+                end
+                length(segs_csv) > 8 &&
+                    (segs_csv = segs_csv[round.(Int, range(1, length(segs_csv); length=8))])
+            end
+            segs = sort(unique(vcat(segs_bt, segs_csv)))
+
+            ug_pairs = Tuple{Float64,Float64}[]   # (inverse ug, bt u)
+            vg_pairs = Tuple{Float64,Float64}[]
+            oursol = DataFrame(yo=Int[], t_mid=DateTime[], z=Float64[], u=Float64[],
+                v=Float64[], nobs=Int[])
+            windows = Dict{Int,Tuple{Float64,Float64}}()
+            for si in segs
+                row = dac[si, :]
+                t1, t2 = datetime2unix(row.t_start), datetime2unix(row.t_end)
+                idx = findall(t -> t1 <= t <= t2, a0.t)
+                length(idx) < 100 && continue
+                sub = a0[idx]
+                qc!(sub)
+                pp = process_pings(sub; lat=69.0)
+                gd = filter(isfinite, pp.depth)
+                # DAC-only inverse (no bottom track!) → glider velocities
+                sol = invert_segment(pp.E, pp.N, pp.celldepth, pp.t, maximum(gd);
+                    dacu=row.u, dacv=row.v, opts=InverseOptions())
+                sol === nothing && continue
+                windows[row.yo] = (t1, t2)
+                for k in eachindex(sol.z)
+                    push!(oursol, (row.yo, row.t_mid, sol.z[k], sol.u[k], sol.v[k],
+                        sol.nobs[k]))
+                end
+                si in segs_bt || continue
+                # independent check: recovered glider velocity vs BT over-ground velocity
+                for btrow in eachrow(btv[(btv.t .>= t1) .& (btv.t .<= t2), :])
+                    j = argmin(abs.(sol.tping .- btrow.t))
+                    abs(sol.tping[j] - btrow.t) <= 6 || continue
+                    push!(ug_pairs, (sol.ug[j], btrow.u))
+                    push!(vg_pairs, (sol.vg[j], btrow.v))
+                end
+            end
+            @test length(ug_pairs) > 200
+            ru = cor(first.(ug_pairs), last.(ug_pairs))
+            rv = cor(first.(vg_pairs), last.(vg_pairs))
+            mdu = median(abs.(first.(ug_pairs) .- last.(ug_pairs)))
+            mdv = median(abs.(first.(vg_pairs) .- last.(vg_pairs)))
+            @info "M38 inverse-vs-BT (independent): n=$(length(ug_pairs)), " *
+                  "r_u=$(round(ru, digits=3)), r_v=$(round(rv, digits=3)), " *
+                  "med|Δu_g|=$(round(mdu, digits=3)), med|Δv_g|=$(round(mdv, digits=3)) m/s"
+            @test ru > 0.6 && rv > 0.6
+            @test mdu < 0.1 && mdv < 0.1
+
+            # regression vs the prior Python (Slocum-AD2CP-style) processing
+            if ref !== nothing
+                rus = Float64[]; rvs = Float64[]
+                for yo in unique(oursol.yo)
+                    haskey(windows, yo) || continue
+                    t1, t2 = windows[yo]
+                    ours = oursol[(oursol.yo .== yo) .& (oursol.nobs .> 10), :]
+                    isempty(ours) && continue
+                    # their "time_midpoint" convention is uncertain (mid vs end) —
+                    # match any reference yo whose stamp falls inside our fix-to-fix window
+                    inwin = findall(t -> t1 - 600 <= t <= t2 + 600, ref.time_midpoint)
+                    isempty(inwin) && continue
+                    cnt = Dict{Float64,Int}()
+                    for y in ref.yo_number[inwin]
+                        cnt[y] = get(cnt, y, 0) + 1
+                    end
+                    ryo = argmax(cnt)
+                    r = ref[ref.yo_number .== ryo, :]
+                    zr = -r.depth_bins
+                    ui = GliderADCP._interp1(ours.z, ours.u, zr)
+                    vi = GliderADCP._interp1(ours.z, ours.v, zr)
+                    ok = findall(k -> isfinite(ui[k]) && isfinite(vi[k]), eachindex(zr))
+                    length(ok) < 20 && continue
+                    push!(rus, cor(ui[ok], r.u_ocean_vel[ok]))
+                    push!(rvs, cor(vi[ok], r.v_ocean_vel[ok]))
+                end
+                @info "M38 vs reference CSV: $(length(rus)) matched yos, " *
+                      "median r_u=$(round(median(rus), digits=3)), " *
+                      "median r_v=$(round(median(rvs), digits=3))"
+                @test length(rus) >= 3
+                @test median(rus) > 0.2 && median(rvs) > 0.2   # guards gross errors only
+            else
+                @info "reference absolute_ocean_vel.csv not found — skipping CSV regression"
+            end
         end
     end
 

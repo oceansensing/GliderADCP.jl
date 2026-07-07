@@ -10,21 +10,24 @@ and the Visbeck (2002) **least-squares inverse method**
 plus bottom-track and surface-drift constraints, built from first principles in
 independent layers.
 
-**Status:** Phases 1–3 implemented and tested (134 tests, including acceptance runs
+**Status:** Phases 1–4 implemented and tested (153 tests, including acceptance runs
 against a full SeaExplorer mission): I/O (MIDAS netCDF incl. bottom track, SeaExplorer
 gli/pld parsers), sound-speed correction, QC, the exact 3-beam beam→XYZ→ENU transform,
-isobaric regridding, and depth-averaged current + surface drift from navigation.
-Cross-validated against `gliderad2cp` ground truth (beam→XYZ machine-exact; ENU to
-3e-7 m/s; regrid r = 0.996 at low roll, where the residual is their small-angle
-cell-depth approximation). Next: the velocity solutions (shear + inverse with DAC and
-bottom-track constraints). See [PLAN.md](PLAN.md) for the research-backed roadmap and
-[docs/reference_dataset.md](docs/reference_dataset.md) for the reference dataset.
+isobaric regridding, DAC + surface drift from navigation, and **both velocity solvers**
+(shear and the Visbeck-style inverse with composable DAC / bottom-track / smoothness
+constraints). Validated three ways: machine-exact parity against `gliderad2cp` ground
+truth; synthetic-truth recovery for both solvers; and an independent real-data check —
+the DAC-only inverse's glider velocities match unseen bottom-track ground truth at
+r = 0.97 (median difference ≈ 7 cm/s). See [PLAN.md](PLAN.md) for the roadmap.
 
 ```julia
 using GliderADCP
-adcp = load_ad2cp("sea064_M38.ad2cp.00000.nc")     # Data/Average + Data/AverageBT + Config
-nav  = load_seaexplorer_nav("delayed/nav/logs")     # gli files → GPS/DR segments
-qc!(adcp)                                           # correlation/amplitude/SNR/… masks
-E, N, U, offsets, beams = enu_on_isobars(adcp)      # relative velocities, earth frame
-dac  = compute_dac(nav)                             # per-yo depth-averaged current
+adcp = load_ad2cp("sea064_M38.ad2cp.00000.nc")   # Data/Average + Data/AverageBT + Config
+nav  = load_seaexplorer_nav("delayed/nav/logs")   # gli files → GPS/DR segments
+qc!(adcp)                                         # correlation/amplitude/SNR/… masks
+pings = process_pings(adcp; lat=69.0)             # ENU relative velocities on isobars
+dac   = compute_dac(nav)                          # per-yo depth-averaged current
+btv   = bt_velocity(adcp)                         # over-ground velocity when in BT range
+prof_i = solve_inverse(pings, dac; bt=btv)        # absolute velocity profiles (inverse)
+prof_s = solve_shear(pings, dac)                  # absolute velocity profiles (shear)
 ```

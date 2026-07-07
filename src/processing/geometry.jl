@@ -175,3 +175,39 @@ function beams_to_enu(a::AD2CPData; look::Symbol=:auto, declination=0.0,
     end
     return E, N, U, used
 end
+
+"""
+    bt_velocity(adcp; look=:auto, declination=0.0, max_range=Inf) -> DataFrame
+
+Glider over-ground velocity from bottom-track records. The bottom is stationary, so the
+along-beam BT velocity (positive away) is `−e ⋅ v_glider`; solving the same 3-beam
+system as for water pings and negating gives the glider's earth-frame velocity over
+ground: `v_glider = −R·F·solve(b_bt)`. Only pings whose three selected beams pass
+[`bt_valid`](@ref) are returned.
+
+Columns: `time, t, u, v, w` (m/s over ground, ENU) and `range` (mean valid beam
+detection distance, m).
+"""
+function bt_velocity(a::AD2CPData; look::Symbol=:auto, declination=0.0,
+                     max_range::Real=Inf)
+    a.bt === nothing && error("bt_velocity: dataset has no bottom-track group")
+    bt = a.bt
+    lk = look === :auto ? detect_look_direction(a) : look
+    e = beam_unit_vectors(a.config)
+    F = head2vehicle(lk)
+    valid = bt_valid(bt; max_range)
+    S = Dict(sel => inv(beams_matrix(e, sel)) for sel in ((1, 2, 4), (2, 3, 4)))
+    decl(i) = declination isa Number ? Float64(declination) : Float64(declination[i])
+    rows = NamedTuple[]
+    for i in 1:length(bt)
+        h, p, r = bt.heading[i], bt.pitch[i], bt.roll[i]
+        (isfinite(h) && isfinite(p) && isfinite(r)) || continue
+        sel = select_beams(p; look=lk)
+        all(b -> valid[b, i], sel) || continue
+        b = Float64[bt.vel[sel[1], i], bt.vel[sel[2], i], bt.vel[sel[3], i]]
+        vg = -(rotmat_xyz2enu(h, p, r; declination=decl(i)) * F * (S[sel] * b))
+        rng = mean(bt.distance[b2, i] for b2 in sel)
+        push!(rows, (time=bt.time[i], t=bt.t[i], u=vg[1], v=vg[2], w=vg[3], range=rng))
+    end
+    return DataFrame(rows)
+end

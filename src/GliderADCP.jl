@@ -46,6 +46,9 @@ export QCThresholds, qc!, bt_valid
 export soundspeed_from_ctd, soundspeed_correction, apply_soundspeed!
 export vertical_cosines, offset_grid, regrid_beams, enu_on_isobars
 export compute_dac, surface_drift, lonlat_to_dxdy
+export ProcessedPings, process_pings, glider_depth, segment_indices, bt_velocity
+export InverseOptions, invert_segment, solve_inverse
+export ShearOptions, shear_segment, integrate_shear, solve_shear
 
 # ---- Layer 0: types & configuration ------------------------------------------------
 include("types.jl")
@@ -65,6 +68,7 @@ include("processing/binmap.jl")
 
 # ---- Layer 3: platform kinematics ---------------------------------------------------
 include("processing/dac.jl")       # depth-averaged current from nav (DR/GPS), surface drift
+include("processing/pipeline.jl")  # ProcessedPings orchestration (Layer 2-3 chain)
 
 # ---- Layer 4: velocity solutions ----------------------------------------------------
 include("solutions/shear.jl")

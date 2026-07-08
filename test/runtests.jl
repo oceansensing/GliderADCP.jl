@@ -441,6 +441,23 @@ end
         both = intersect(inv1.z[good], sh.z[gs])
         iu = Dict(zip(inv1.z, inv1.u)); su = Dict(zip(sh.z, sh.u))
         @test maximum(abs(iu[z] - su[z]) for z in both) < 0.06
+
+        # --- shear-content products (Task 1) ---
+        dudz(z) = 0.2 * (2π / 150) * cos(2π * z / 150)
+        shp = solve_shear_profile(pp, dacdf)
+        gp = (shp.nobs .>= 4) .&& isfinite.(shp.sh_u) .&& (shp.z .< 200)
+        @test count(gp) > 10
+        @test maximum(abs.(shp.sh_u[gp] .- dudz.(shp.z[gp]))) < 1.5e-3
+        ish = inverse_shear(inv1)
+        gi = (ish.nobs .> 20) .&& isfinite.(ish.sh_u)
+        @test count(gi) > 10
+        # smoothness + 2·dz centered differencing attenuate; shape must match
+        @test cor(ish.sh_u[gi], dudz.(ish.z[gi])) > 0.98
+        @test maximum(abs.(ish.sh_u[gi] .- dudz.(ish.z[gi]))) < 3e-3
+        # and the two shear products agree on this noiseless synthetic
+        jj = innerjoin(shp[gp, :], ish[gi, :]; on=[:yo, :z], makeunique=true)
+        @test nrow(jj) > 8
+        @test cor(jj.sh_u, jj.sh_u_1) > 0.97
     end
 
     @testset "declination, gridding, export" begin

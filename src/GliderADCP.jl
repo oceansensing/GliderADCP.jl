@@ -49,7 +49,8 @@ export vertical_cosines, offset_grid, regrid_beams, enu_on_isobars
 export compute_dac, surface_drift, lonlat_to_dxdy
 export ProcessedPings, process_pings, glider_depth, segment_indices, bt_velocity
 export InverseOptions, invert_segment, solve_inverse
-export ShearOptions, shear_segment, integrate_shear, solve_shear
+export ShearOptions, shear_segment, integrate_shear, solve_shear, solve_shear_profile
+export inverse_shear
 export magnetic_declination, grid_profiles, export_sections
 export load_pnor, slocum_nav, dac_from_slocum, time_in_bin, plot_sections
 export read_ad2cp

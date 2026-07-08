@@ -245,6 +245,14 @@ not an implementation artifact — it is the structural difference between the m
 and the reason the lADCP community moved to inversions. Use the shear solution as an
 independent cross-check, reading its per-yo wiggles with the drift envelope in mind.
 
+Two shear-content products support method intercomparison and finestructure work:
+[`solve_shear_profile`](@ref) returns the shear method's pre-integration binned shear,
+and [`inverse_shear`](@ref) differences any solver profile. Note that per-yo, bin-scale
+shear is internal-wave dominated in most environments (on M38 the direct product's own
+dive-vs-climb reproducibility is r = 0.08) — compare shear *statistics* or averaged
+profiles, not individual bins, and prefer `inverse_shear` for deterministic sub-inertial
+shear (see the validation report for the full analysis).
+
 ## 8. Quality metrics to compute on every mission
 
 ```julia

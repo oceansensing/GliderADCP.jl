@@ -148,3 +148,34 @@ function solve_shear(p::ProcessedPings, dac::DataFrame; opts::ShearOptions=Shear
     end
     return out
 end
+
+"""
+    solve_shear_profile(pings::ProcessedPings, segments::DataFrame;
+                        opts=ShearOptions()) -> DataFrame
+
+The shear method's **pre-integration** product: per-segment binned vertical shear,
+without integration or DAC referencing. `segments` is any table with
+`yo, t_start, t_end, t_mid` columns (a [`compute_dac`](@ref) result works; its `u`/`v`
+are not used). Returns `yo, t_mid, z, sh_u, sh_v, nobs` (s⁻¹; NaN where
+`nobs < min_bin_obs`).
+
+This is the quantity to compare against [`inverse_shear`](@ref) for a method
+intercomparison free of integration/referencing differences.
+"""
+function solve_shear_profile(p::ProcessedPings, segments::DataFrame;
+                             opts::ShearOptions=ShearOptions())
+    out = DataFrame(yo=Int[], t_mid=DateTime[], z=Float64[], sh_u=Float64[],
+        sh_v=Float64[], nobs=Int[])
+    for row in eachrow(segments)
+        idx = segment_indices(p, row.t_start, row.t_end)
+        length(idx) >= opts.min_pings || continue
+        seg = shear_segment(view(p.E, :, idx), view(p.N, :, idx),
+            view(p.celldepth, :, idx), p.offsets; opts)
+        seg === nothing && continue
+        for k in eachindex(seg.z)
+            push!(out, (row.yo, row.t_mid, seg.z[k], seg.sh_u[k], seg.sh_v[k],
+                seg.nobs[k]))
+        end
+    end
+    return out
+end

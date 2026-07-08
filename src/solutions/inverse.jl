@@ -226,3 +226,34 @@ function solve_inverse(p::ProcessedPings, dac::DataFrame;
     end
     return out
 end
+
+"""
+    inverse_shear(prof::DataFrame) -> DataFrame
+
+Vertical shear implied by an inverse solution ([`solve_inverse`](@ref) output):
+per-segment centered differences of `u`,`v` over depth, evaluated only across
+contiguous bins. Returns `yo, t_mid, z, sh_u, sh_v, nobs` (s⁻¹), where `nobs` is the
+smaller observation count of the two bins entering each difference — filter on it just
+like the shear-method product. Comparable bin-for-bin with
+[`solve_shear_profile`](@ref).
+"""
+function inverse_shear(prof::DataFrame)
+    out = DataFrame(yo=Int[], t_mid=DateTime[], z=Float64[], sh_u=Float64[],
+        sh_v=Float64[], nobs=Int[])
+    for g in groupby(prof, :yo)
+        n = nrow(g)
+        n < 3 && continue
+        ord = sortperm(g.z)
+        z = g.z[ord]; u = g.u[ord]; v = g.v[ord]; nobs = g.nobs[ord]
+        dz = median(diff(z))
+        for k in 2:n-1
+            # centered difference only across contiguous bins
+            (isapprox(z[k+1] - z[k], dz; rtol=1e-6) &&
+             isapprox(z[k] - z[k-1], dz; rtol=1e-6)) || continue
+            push!(out, (g.yo[1], g.t_mid[1], z[k],
+                (u[k+1] - u[k-1]) / 2dz, (v[k+1] - v[k-1]) / 2dz,
+                min(nobs[k-1], nobs[k+1])))
+        end
+    end
+    return out
+end

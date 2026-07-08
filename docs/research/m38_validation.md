@@ -166,3 +166,40 @@ Concern: the inverse's 0–30 m velocities look low. Findings:
    time-resolved estimator (per-cast solves are noise-limited in the top bins with only
    ~5–10 pings; a rotary/Kalman formulation à la Stevens-Haas et al. 2022 is the proper
    future tool).
+
+## Task 1 (2026-07-08): shear-content comparison between the methods
+
+New products: [`solve_shear_profile`] (the shear method's pre-integration binned shear)
+and [`inverse_shear`] (centered differences of any solver profile — the shear implied by
+the inverse). Comparing them on M38 (post-QC, post-calibration, dz = 10 m):
+
+| comparison | r_u | notes |
+|---|---|---|
+| per-yo bins, direct vs inverse-implied | 0.20 (0.63 at z < 100 m) | rms 1.9×10⁻³ s⁻¹ ≈ the internal-wave shear level |
+| same, scale-matched (both profiles 20-m centered-differenced) | 0.22 | scale is not the cause |
+| **dive vs climb of the DIRECT product (same method, same yo)** | **0.08** | the reproducibility ceiling |
+| mission-mean profile, v | 0.39 (rms 1.6×10⁻⁴; stds 1.4/1.5×10⁻⁴) | agrees |
+| mission-mean profile, u | −0.04 (rms 6.7×10⁻⁴) | see below |
+
+**Interpretation.** Per-yo, bin-scale (10–20 m) shear in this environment is dominated
+by internal-wave finestructure that decorrelates in the hours between a dive and its
+climb — the direct product cannot even reproduce *itself* cast-to-cast (r = 0.08), so
+no two estimators can be expected to agree per bin. The expectation "the shear content
+should be comparable" holds exactly where signal exceeds the wave noise: the upper
+100 m (r = 0.63), the integrated velocity profiles, and the mission-mean v profile.
+
+**The mission-mean u asymmetry** (inverse std 5.3×10⁻⁴ vs direct 1.6×10⁻⁴): the
+inverse retains the real sub-inertial shear of the early-mission eddy transit
+(magnitudes match the raw-data tilt checks of −5…−6×10⁻⁴ s⁻¹), while the direct
+product does not. Working hypothesis: the shear-bias calibration operates entirely
+within the ping window, so *track-aligned real mean shear* from the predominantly
+eastbound eddy transit leaks into b(r) and is subtracted from the direct product — the
+documented heading-diversity caveat, here quantified at O(1–5)×10⁻⁴ s⁻¹ for this
+mission's u component — whereas the inverse's shear comes from cross-ping bin structure
+and is immune. Task 3 (the 300-m shear feature) will adjudicate the inverse's deep
+structure independently via hydrography/thermal wind.
+
+**Guidance** (also in the tutorial): use `inverse_shear` for deterministic/sub-inertial
+shear; use `solve_shear_profile` for internal-wave/finestructure statistics (shear
+variance) and QC; on low-heading-diversity legs expect the bias calibration to absorb
+some real track-aligned mean shear from the *direct* product only.

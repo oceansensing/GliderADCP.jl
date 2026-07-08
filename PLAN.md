@@ -280,14 +280,14 @@ acceptance criteria pass.
 
 ## 8a. Queued for next session (2026-07-08)
 
-1. **Shear-only apples-to-apples comparison, as a product.** Comparing the two methods'
-   final *absolute* velocities conflates different referencing/integration behavior.
-   Instead: differentiate the inverse's `u_o(z)` per yo (centered differences) to get its
-   implied shear, and surface the shear method's own pre-integration binned shear
-   (`shear_segment`'s `sh_u`/`sh_v` — currently computed inside `solve_shear` but not
-   returned) as a public product. Compare those two shear profiles directly; add the
-   metrics to `m38_validation.md` and expose e.g. `solve_shear_profile`/an
-   `inverse_shear(prof)` helper.
+1. **Shear-only apples-to-apples comparison, as a product — DONE (2026-07-08).**
+   Added `solve_shear_profile` + `inverse_shear` (tested on synthetic truth). M38
+   finding (m38_validation.md §Task 1): per-yo bin-scale shear is internal-wave
+   dominated — the direct product's own dive-vs-climb reproducibility is r = 0.08, so
+   per-bin method agreement (r ≈ 0.2; 0.63 in the top 100 m) is at the sampling ceiling;
+   mission-mean v-shear agrees, mission-mean u-shear exposes the calibration's
+   absorption of track-aligned real shear (heading-diversity caveat quantified) — feeds
+   Task 3.
 2. **SeaExplorer loader duplication vs ATOMIXjulia.jl.** Both packages parse SeaExplorer
    nav (`gli`) and science payload (`pld1`) files independently — GliderADCP.jl's is
    `src/io/seaexplorer.jl` (`load_seaexplorer_nav`/`load_seaexplorer_pld`: gzip, NMEA

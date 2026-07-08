@@ -48,11 +48,13 @@ dac = compute_dac(nav)
 btv = bt_velocity(adcp; max_range=28.0, declination=magnetic_declination(nav, adcp.bt.t))
 @info "    $(nrow(dac)) DAC segments, $(nrow(btv)) bottom-track fixes"
 
-@info "5/7 velocity solutions (inverse with DAC+BT, shear with DAC) — all yos"
-inv = solve_inverse(pings, dac; bt=btv)
+@info "5/7 velocity solutions (inverse, shear, vertical) — all yos"
+inv = solve_inverse(pings, dac; bt=(nrow(btv) > 0 ? btv : nothing))
 shr = solve_shear(pings, dac)
+wdir = solve_w(pings, dac)                       # w, direct: binned U_rel + dP/dt
+winv = solve_w(pings, dac; method=:inverse)      # w, inverse machinery, pressure-anchored
 @info "    inverse: $(length(unique(inv.yo))) yos, $(nrow(inv)) bins; " *
-      "shear: $(length(unique(shr.yo))) yos"
+      "shear: $(length(unique(shr.yo))) yos; w: $(length(unique(wdir.yo))) yos"
 
 @info "6/7 diagnostics"
 # (a) method intercomparison on common (yo, z) bins
@@ -116,12 +118,27 @@ export_sections(joinpath(OUT, "M38_sections_shear.nc"), sec_s;
     attrs=merge(attrs, Dict{String,Any}("method" => "shear + DAC referencing")))
 CSV.write(joinpath(OUT, "M38_profiles_inverse.csv"), inv)
 CSV.write(joinpath(OUT, "M38_profiles_shear.csv"), shr)
+CSV.write(joinpath(OUT, "M38_profiles_w_direct.csv"), wdir)
+CSV.write(joinpath(OUT, "M38_profiles_w_inverse.csv"), winv)
 
 using CairoMakie
-fig = plot_sections([(sec, :U, "U (east) — inverse + bottom track"),
-                     (sec, :V, "V (north) — inverse + bottom track"),
-                     (sec_s, :U, "U (east) — shear method")])
+# data-driven symmetric color ranges (99th percentile of |values|, shared per figure)
+sym99(As...) = quantile(abs.(reduce(vcat, [filter(isfinite, vec(A)) for A in As])), 0.99)
+sec_wd = grid_profiles(wdir; fields=(:w, :w))
+sec_wi = grid_profiles(winv; fields=(:w, :w))
+crUV = ceil(sym99(sec.U, sec.V, sec_s.U, sec_s.V) * 20) / 20
+crW = ceil(sym99(sec_wd.U, sec_wi.U) * 200) / 200
+@info "    color ranges: horizontal ±$(crUV) m/s, vertical ±$(crW) m/s"
+fig = plot_sections([(sec, :U, "U (east) — inverse"),
+                     (sec, :V, "V (north) — inverse"),
+                     (sec_s, :U, "U (east) — shear method"),
+                     (sec_s, :V, "V (north) — shear method")];
+    colorrange=(-crUV, crUV))
 save(joinpath(OUT, "M38_UV_sections.png"), fig)
+figw = plot_sections([(sec_wd, :U, "w — direct (U_rel + dP/dt, binned)"),
+                      (sec_wi, :U, "w — inverse (pressure-anchored)")];
+    colorrange=(-crW, crW))
+save(joinpath(OUT, "M38_w_sections.png"), figw)
 
 fig2 = Figure(size=(1200, 480))
 ax1 = Axis(fig2[1, 1]; title=@sprintf("shear vs inverse (u): r=%.2f, rms=%.3f m/s", r_u, rms_u),

@@ -307,12 +307,14 @@ acceptance criteria pass.
    mission-mean u-shear asymmetry traced to the same cause (calibration-absorption
    hypothesis retracted).
 
-4. **`examples/m38_currents.jl` section figure fixes.** Add the missing shear-method
-   **V** panel (only U is currently plotted); add **w** panel(s) from
-   `vertical_velocity` for both methods; replace the fixed `colorrange=(-0.5, 0.5)` (it
-   saturates the inverse+BT panels) with a data-driven range (e.g. ~1st–99th percentile
-   of the actual finite values, shared across panels for comparability) so the colormap
-   spans nearly the full value range instead of clipping.
+4. **Section figure fixes — DONE (2026-07-08).** Four-panel U/V (inverse + shear, both
+   components), new `solve_w` product with `:direct` and `:inverse` (pressure-anchored)
+   methods plotted as a two-panel w figure, data-driven 99th-percentile color ranges
+   (M38: ±0.5 m/s horizontal, ±0.04 m/s vertical — no saturation). Side result of the
+   Task-3 fix, documented in m38_validation.md §Task 4: shear-vs-inverse agreement is
+   actually r ≈ 0.98 / rms 0.036 m/s (the previous 0.65/0.20 was measured against the
+   BT-contaminated inverse); DAC closure 1 mm/s.
+
 5. **Real-time vs delayed-mode comparison.** (Note: "p files"/"q files" terminology
    from the previous version of this item was a mix-up — that naming is specific to the
    ATOMIXjulia repo/microstructure data, not this one; scope here is unchanged otherwise.)

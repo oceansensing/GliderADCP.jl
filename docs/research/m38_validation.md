@@ -262,3 +262,29 @@ layer at 300 m in this mission. The real deep pycnocline (AW base) sits at 160�
 with thermal-wind shear of order 10⁻⁵–10⁻⁴ s⁻¹, and the transit-eddy velocity
 structure is smooth across 200–450 m (≈4×10⁻⁴ s⁻¹), exactly as the DAC-only inverse
 and the raw relative velocities show.
+
+## Task 4 (2026-07-08): section figures, w products — and a major revision
+
+`examples/m38_currents.jl` now produces four-panel U/V sections (inverse and shear,
+both components), a two-panel **w** figure via the new [`solve_w`] product
+(`:direct` = binned `U_rel + dP/dt`; `:inverse` = ocean-w bins solved jointly with
+per-ping glider w anchored to the pressure-derived vertical velocity — the vertical
+analog of a bottom-track constraint), and data-driven symmetric color ranges (99th
+percentile of the finite values; M38: ±0.5 m/s horizontal, ±0.04 m/s vertical). The two
+w estimates corroborate each other closely; near-surface bins remain wave-contaminated
+as documented.
+
+**Revision of the method-intercomparison numbers.** With the false bottom-track locks
+screened out (Task 3), the M38 full-mission comparison becomes:
+
+    shear vs inverse:  r_u = 0.977, r_v = 0.979, rms ≈ 0.036 m/s   (was 0.65 / 0.20)
+    DAC closure:       median 0.001 m/s                            (was 0.005)
+
+Most of the disagreement previously attributed to shear-method integration noise was in
+fact the **inverse being distorted by the false BT anchors**. The corrected picture:
+the two methods agree to ≈3–4 cm/s rms mission-wide. What survives of the earlier
+narrative: the shear method's per-yo random-walk drift and its ≈+0.09 m/s near-surface
+bias against GPS drift (both measured BT-free) are real but second-order; the
+cast-to-cast shear-reproducibility ceiling (r = 0.08, method-internal) also stands.
+Task-1's per-yo bin-shear comparisons used the contaminated inverse and would improve
+somewhat if recomputed, but remain bounded by that sampling ceiling.

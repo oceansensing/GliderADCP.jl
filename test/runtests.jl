@@ -820,6 +820,16 @@ end
                if isfinite(w[k, i])]
         @test length(err) > 5000
         @test maximum(err) < 1e-10
+
+        # solve_w: both methods recover the prescribed w_o(z)
+        segs = DataFrame(yo=[1], t_start=[times[1]], t_end=[times[end]],
+            t_mid=[times[nt÷2]], u=[0.0], v=[0.0])
+        for method in (:direct, :inverse)
+            wd = solve_w(pp, segs; method)
+            g = (wd.nobs .> 20) .&& isfinite.(wd.w)
+            @test count(g) > 10
+            @test maximum(abs.(wd.w[g] .- w_o.(wd.z[g]))) < 3e-3
+        end
     end
 
     if isfile(joinpath(M38_DIR, "ad2cp/102381_sea064_M38/sea064_M38.ad2cp"))

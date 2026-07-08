@@ -55,7 +55,7 @@ export magnetic_declination, grid_profiles, export_sections
 export load_pnor, slocum_nav, dac_from_slocum, time_in_bin, plot_sections
 export read_ad2cp
 export shear_bias, apply_shear_bias!, calibrate_shear_bias!
-export vertical_velocity, compass_field_check
+export vertical_velocity, glider_w, solve_w, compass_field_check
 
 """
     plot_sections(panels; colorrange=(-0.5, 0.5), colormap=:balance, figsize=...)

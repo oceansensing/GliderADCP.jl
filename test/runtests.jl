@@ -1005,6 +1005,39 @@ end
         end
     end
 
+    if isfile(M38_NC) && isdir(M38_PLD) && isdir(M38_NAV)
+        @testset "M38 acceptance: real-time vs delayed pipeline (Task 5)" begin
+            # identical pipeline on the $PNOR telemetry stream vs the MIDAS netCDF,
+            # restricted to the first 3 days to bound runtime (full mission:
+            # examples/m38_realtime_vs_delayed.jl — inverse r=0.9996, rms 4.6 mm/s)
+            a_d = load_ad2cp(M38_NC)
+            a_r = load_pnor(M38_PLD)
+            tcut = a_r.t[1] + 3 * 86400
+            a_d = a_d[a_d.t .< tcut]
+            a_r = a_r[a_r.t .< tcut]
+            nav = load_seaexplorer_nav(M38_NAV)
+            dac = compute_dac(nav)
+            prods = DataFrame[]
+            for (a, look) in ((a_d, :auto), (a_r, :down))
+                qc!(a)
+                p = process_pings(a; lat=69.5, look=look,
+                    declination=magnetic_declination(nav, a.t))
+                calibrate_shear_bias!(p)
+                push!(prods, solve_inverse(p, dac))
+            end
+            j = innerjoin(prods[1], prods[2]; on=[:yo, :z], makeunique=true)
+            m = (j.nobs .> 10) .&& (j.nobs_1 .> 10) .&& isfinite.(j.u) .&& isfinite.(j.u_1)
+            @test length(unique(j.yo[m])) >= 10
+            @test length(unique(prods[1].yo)) == length(unique(prods[2].yo))  # no yos lost
+            for c in (:u, :v)
+                d = j[m, c] .- j[m, Symbol(c, :_1)]
+                @test cor(j[m, c], j[m, Symbol(c, :_1)]) > 0.995
+                @test sqrt(mean(d .^ 2)) < 0.010          # quantization-level rms
+                @test abs(mean(d)) < 0.002                # no systematic offset
+            end
+        end
+    end
+
     @testset "Aqua quality assurance" begin
         import Aqua
         Aqua.test_all(GliderADCP; ambiguities=false)

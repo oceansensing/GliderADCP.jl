@@ -288,3 +288,43 @@ bias against GPS drift (both measured BT-free) are real but second-order; the
 cast-to-cast shear-reproducibility ceiling (r = 0.08, method-internal) also stands.
 Task-1's per-yo bin-shear comparisons used the contaminated inverse and would improve
 somewhat if recomputed, but remain bounded by that sampling ceiling.
+
+## Task 5 (2026-07-08): real-time vs delayed-mode products
+
+Full-pipeline comparison of the two AD2CP data routes, everything else held identical
+(gli.sub nav, pld1.sub CTD sound speed, QC thresholds, IGRF declination, shear-bias
+calibration, DAC): the **real-time** `$PNOR` ASCII telemetry stream (`load_pnor`;
+0.01 m/s velocity quantization, 0.1° attitude, no accelerometer, no BT records) vs the
+**delayed-mode** full-resolution `.ad2cp` binary. Script:
+`examples/m38_realtime_vs_delayed.jl`; gated acceptance test in the suite.
+
+Coverage first (the Task-6 machinery reports it directly): the stream carries
+123,950 of 124,752 ensembles (99.4%). The payload stopped writing the stream on
+2022-11-27 — segment sequence complete, `missing_segments` empty, so this is the
+payload configuration, not transfer loss — while the instrument kept recording sparse
+internal bursts through 2023-03-01 (750 ensembles, three months, delayed-only).
+The real-time record covers the entire main pinging period.
+
+Product agreement over the 127 yos both sides solve (identical yo sets — real-time
+loses no segments; common (yo, z) bins, nobs > 10):
+
+    inverse u:  r = 0.9996   rms = 4.6 mm/s   bias  0.0 mm/s
+    inverse v:  r = 0.9997   rms = 4.1 mm/s   bias  0.0 mm/s
+    shear u:    r = 0.9897   rms = 24.9 mm/s  bias +0.1 mm/s
+    shear v:    r = 0.9911   rms = 22.9 mm/s  bias -0.1 mm/s
+    w (direct): r = 0.9603   rms = 2.6 mm/s   bias  0.0 mm/s
+
+Depth structure: the inverse difference is flat at 4–6 mm/s from the surface to
+1000 m (5.7 mm/s in 600–1000 m, where fewer samples average the quantization noise);
+the shear-method difference runs 18–31 mm/s because vertical integration accumulates
+the quantized-sample noise that the inverse localizes per bin.
+
+**Conclusions.** (1) A real-time/onboard product built from the telemetry stream is
+essentially the delayed product: the inverse-method penalty is ~5 mm/s rms with zero
+bias — an order of magnitude below the ~3–4 cm/s method/sampling uncertainty
+established in Task 3. The 0.01 m/s per-sample quantization averages down as expected
+(~200 samples per bin → few mm/s). (2) The stream's missing pieces (accelerometer →
+pass `look` explicitly; BT records → irrelevant on M38, which has no genuine BT;
+magnetometer → declination comes from nav anyway) cost nothing here. (3) Prefer the
+shear method last in real-time settings: it is the one product measurably degraded
+(≈2.5 cm/s rms) by stream quantization.

@@ -78,7 +78,15 @@ adcp_rt = load_pnor("delayed/pld1/logs")
 The native reader was validated **bit-for-bit** against the MIDAS export of the same
 file (every velocity, amplitude, correlation, attitude and bottom-track sample), and the
 `$PNOR` stream reproduces the full-resolution record at its reduced precision
-(r = 1.000 for heading and beam velocities). Platform data:
+(r = 1.000 for heading and beam velocities). Run through the full pipeline, the stream
+yields essentially the delayed-mode product: on the reference mission the inverse
+solution matches the binary-derived one to r = 0.9996 and 4.6 mm/s rms with zero bias
+(the 0.01 m/s per-sample quantization averages down in the bin means), so real-time or
+onboard processing from this stream is quantitatively viable — see
+`examples/m38_realtime_vs_delayed.jl`. Two caveats: pass `look=` explicitly to
+`process_pings` (the stream has no accelerometer), and expect the shear-method product
+to carry ~2.5 cm/s rms extra noise, since vertical integration accumulates the
+quantization error that the inverse localizes. Platform data:
 
 ```julia
 nav = load_seaexplorer_nav("delayed/nav/logs")   # positions, DR/GPS flags, attitude

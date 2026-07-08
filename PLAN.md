@@ -315,18 +315,16 @@ acceptance criteria pass.
    actually r ≈ 0.98 / rms 0.036 m/s (the previous 0.65/0.20 was measured against the
    BT-contaminated inverse); DAC closure 1 mm/s.
 
-5. **Real-time vs delayed-mode comparison.** (Note: "p files"/"q files" terminology
-   from the previous version of this item was a mix-up — that naming is specific to the
-   ATOMIXjulia repo/microstructure data, not this one; scope here is unchanged otherwise.)
-   Compare the real-time telemetered data — the `$PNOR` stream embedded in the `.ad2cp`
-   raw logs, read via `load_pnor` — against the delayed-mode calculation that uses the
-   full-resolution recovered glider `pld` files (and the full `.ad2cp`/MIDAS data). Go
-   beyond the existing raw-ensemble check (the r=1.0 heading/velocity match already in
-   `test/runtests.jl`) to a **full-pipeline** comparison: run QC→DAC→solve_inverse/
-   solve_shear on the real-time-derived inputs and on the delayed-mode inputs
-   independently, and quantify how close the resulting ocean-velocity products are —
-   this bounds how good a real-time/onboard product could be relative to the delayed
-   full-resolution reprocessing.
+5. **Real-time vs delayed-mode comparison — DONE (2026-07-08).** Full pipeline run
+   independently on the `$PNOR` telemetry stream (`load_pnor`) and the full-resolution
+   `.ad2cp` binary, all shared inputs identical. M38: stream covers the whole main
+   pinging period (99.4% of ensembles; payload stopped writing it 2022-11-27, binary
+   adds only 750 late burst ensembles); both routes solve the identical 127 yos.
+   Inverse agreement r=0.9996/0.9997 (u/v), rms 4.6/4.1 mm/s, zero bias, depth-uniform
+   to 1000 m; shear method rms 2.3–2.5 cm/s (integration accumulates quantization
+   noise); w rms 2.6 mm/s. A real-time product is essentially the delayed product for
+   the inverse method. Details in docs/research/m38_validation.md §Task 5; script
+   `examples/m38_realtime_vs_delayed.jl`; gated 3-day acceptance test in the suite.
 6. **Robust missing-data handling — DONE (2026-07-08).** All loaders skip
    corrupt/unreadable inputs with specific warnings (SeaExplorer per-segment, netCDF
    per-file, `$PNOR` per-file; binary reader already resynced and now also reports

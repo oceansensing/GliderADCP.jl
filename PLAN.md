@@ -311,14 +311,15 @@ acceptance criteria pass.
    saturates the inverse+BT panels) with a data-driven range (e.g. ~1st–99th percentile
    of the actual finite values, shared across panels for comparability) so the colormap
    spans nearly the full value range instead of clipping.
-5. **Real-time (q files) vs delayed-mode (p files) comparison.** First pin down exactly
-   which files on disk are the "p files" and "q files" in the ALSEAMAR/SeaExplorer
-   naming scheme (not yet confirmed this session — likely two of the streams already
-   seen under `delayed/pld1/logs`, but verify rather than assume; `load_pnor`'s `$PNOR`
-   real-time-stream path is the probable q-file consumer already in the codebase). Then
-   go beyond the existing raw-ensemble check (the r=1.0 heading/velocity match already
-   in `test/runtests.jl`) to a **full-pipeline** comparison: run QC→DAC→solve_inverse/
-   solve_shear on the q-file (real-time) inputs and on the p-file (delayed) inputs
+5. **Real-time vs delayed-mode comparison.** (Note: "p files"/"q files" terminology
+   from the previous version of this item was a mix-up — that naming is specific to the
+   ATOMIXjulia repo/microstructure data, not this one; scope here is unchanged otherwise.)
+   Compare the real-time telemetered data — the `$PNOR` stream embedded in the `.ad2cp`
+   raw logs, read via `load_pnor` — against the delayed-mode calculation that uses the
+   full-resolution recovered glider `pld` files (and the full `.ad2cp`/MIDAS data). Go
+   beyond the existing raw-ensemble check (the r=1.0 heading/velocity match already in
+   `test/runtests.jl`) to a **full-pipeline** comparison: run QC→DAC→solve_inverse/
+   solve_shear on the real-time-derived inputs and on the delayed-mode inputs
    independently, and quantify how close the resulting ocean-velocity products are —
    this bounds how good a real-time/onboard product could be relative to the delayed
    full-resolution reprocessing.

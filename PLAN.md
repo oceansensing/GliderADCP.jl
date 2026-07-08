@@ -311,6 +311,31 @@ acceptance criteria pass.
    saturates the inverse+BT panels) with a data-driven range (e.g. ~1st–99th percentile
    of the actual finite values, shared across panels for comparability) so the colormap
    spans nearly the full value range instead of clipping.
+5. **Real-time (q files) vs delayed-mode (p files) comparison.** First pin down exactly
+   which files on disk are the "p files" and "q files" in the ALSEAMAR/SeaExplorer
+   naming scheme (not yet confirmed this session — likely two of the streams already
+   seen under `delayed/pld1/logs`, but verify rather than assume; `load_pnor`'s `$PNOR`
+   real-time-stream path is the probable q-file consumer already in the codebase). Then
+   go beyond the existing raw-ensemble check (the r=1.0 heading/velocity match already
+   in `test/runtests.jl`) to a **full-pipeline** comparison: run QC→DAC→solve_inverse/
+   solve_shear on the q-file (real-time) inputs and on the p-file (delayed) inputs
+   independently, and quantify how close the resulting ocean-velocity products are —
+   this bounds how good a real-time/onboard product could be relative to the delayed
+   full-resolution reprocessing.
+6. **Robust missing-data handling across the whole stack, with clear reporting.** Every
+   loader and solver should degrade gracefully — never crash — when data is missing,
+   gapped, or corrupt, at any level: absent/corrupt segment files (nav `gli`, payload
+   `pld1`/`p`/`q` files, AD2CP binary/netCDF), time gaps or partial sensor coverage
+   within a file, a whole yo with no nav or no CTD coverage, truncated/corrupt binary
+   records (the native reader already resyncs past bad bytes — extend that pattern
+   everywhere). Crucially, gaps must be **surfaced, not silently swallowed**: some
+   consistent, structured notification of exactly what was missing/skipped and where
+   (e.g. missing segment numbers in a natural-sort sequence, ensemble/time-gap
+   statistics, which fields fell back to NaN, resync/drop counts) — a coverage-report
+   object returned alongside the data, or at minimum clear `@warn`/`@info` logging, is
+   probably the right shape; decide the concrete design when implementing. Add tests
+   with deliberately-gapped/corrupted synthetic inputs (missing segment files, holes in
+   the middle of a mission, truncated binary, a yo with no nav) to lock in the behavior.
 
 ## 9. Risks & open questions
 

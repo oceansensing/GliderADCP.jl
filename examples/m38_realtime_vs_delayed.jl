@@ -65,31 +65,69 @@ for k in ("inv u", "inv v", "shr u", "shr v", "w")
     @printf "    %-6s n=%5d  r=%.4f  rms=%.4f m/s  bias=%+.4f m/s\n" k s.n s.r s.rms s.bias
 end
 
-@info "4/4 figure"
+@info "4/4 figures"
 try
     @eval using CairoMakie
-    fig = Figure(size=(1000, 420))
-    su = stats["inv u"]
-    ax1 = Axis(fig[1, 1]; xlabel="delayed u (m/s)", ylabel="real-time u (m/s)",
-        title=@sprintf("inverse u: r=%.4f, rms=%.1f mm/s", su.r, 1000su.rms), aspect=1)
-    scatter!(ax1, su.j.u[su.m], su.j.u_1[su.m]; markersize=2, alpha=0.3)
-    ablines!(ax1, 0, 1; color=:black, linestyle=:dash)
-    ax2 = Axis(fig[1, 2]; xlabel="rms difference (mm/s)", ylabel="depth (m)",
+
+    # (a) sections: delayed vs real-time inverse U/V side by side
+    sym99(As...) = quantile(abs.(reduce(vcat, [filter(isfinite, vec(A)) for A in As])), 0.99)
+    sec_d = grid_profiles(prods["delayed_inv"])
+    sec_r = grid_profiles(prods["realtime_inv"])
+    crUV = ceil(sym99(sec_d.U, sec_d.V, sec_r.U, sec_r.V) * 20) / 20
+    fig = plot_sections([(sec_d, :U, "U (east) — delayed (.ad2cp binary)"),
+                         (sec_d, :V, "V (north) — delayed"),
+                         (sec_r, :U, "U (east) — real-time (\$PNOR stream)"),
+                         (sec_r, :V, "V (north) — real-time")];
+        colorrange=(-crUV, crUV))
+    save(joinpath(OUT, "M38_realtime_vs_delayed_sections.png"), fig)
+
+    # (b) difference sections (real-time − delayed) on common (yo, z) bins,
+    #     inverse and shear, one amplified color scale
+    function dgrid(s)
+        d = DataFrame(yo=s.j.yo[s.m], t_mid=s.j.t_mid[s.m], z=s.j.z[s.m],
+            u=s.j.u[s.m] .- s.j.u_1[s.m], v=s.j.v[s.m] .- s.j.v_1[s.m],
+            nobs=min.(s.j.nobs[s.m], s.j.nobs_1[s.m]))
+        grid_profiles(d)
+    end
+    dg_i, dg_s = dgrid(stats["inv u"]), dgrid(stats["shr u"])
+    crD = ceil(sym99(dg_s.U, dg_s.V) * 200) / 200
+    figd = plot_sections([(dg_i, :U, "ΔU — inverse (real-time − delayed)"),
+                          (dg_i, :V, "ΔV — inverse"),
+                          (dg_s, :U, "ΔU — shear method"),
+                          (dg_s, :V, "ΔV — shear method")];
+        colorrange=(-crD, crD))
+    save(joinpath(OUT, "M38_realtime_vs_delayed_diff_sections.png"), figd)
+
+    # (c) scatter panels for every product + rms-by-depth summary
+    fig2 = Figure(size=(1500, 900))
+    panels = (("inv u", :u, 1, 1), ("inv v", :v, 1, 2), ("w", :w, 1, 3),
+              ("shr u", :u, 2, 1), ("shr v", :v, 2, 2))
+    for (key, col, ri, ci) in panels
+        s = stats[key]
+        ax = Axis(fig2[ri, ci]; xlabel="delayed (m/s)", ylabel="real-time (m/s)",
+            title=@sprintf("%s: r=%.4f, rms=%.1f mm/s", key, s.r, 1000s.rms), aspect=1)
+        scatter!(ax, s.j[s.m, col], s.j[s.m, Symbol(col, :_1)];
+            markersize=2, color=(:steelblue, 0.25))
+        ablines!(ax, 0, 1; color=:black, linestyle=:dash)
+    end
+    ax2 = Axis(fig2[2, 3]; xlabel="rms difference (mm/s)", ylabel="depth (m)",
         yreversed=true, title="real-time − delayed, by depth")
-    for (key, color) in (("inv u", :dodgerblue), ("shr u", :darkorange))
+    for (key, col, color) in (("inv u", :u, :dodgerblue), ("inv v", :v, :navy),
+                              ("shr u", :u, :darkorange), ("shr v", :v, :firebrick),
+                              ("w", :w, :seagreen))
         s = stats[key]
         zc, rmsz = Float64[], Float64[]
         for z1 in 0:50:950
             mz = s.m .&& (z1 .<= s.j.z .< z1 + 50)
             count(mz) < 30 && continue
             push!(zc, z1 + 25)
-            push!(rmsz, 1000 * sqrt(mean((s.j.u[mz] .- s.j.u_1[mz]) .^ 2)))
+            push!(rmsz, 1000 * sqrt(mean((s.j[mz, col] .- s.j[mz, Symbol(col, :_1)]) .^ 2)))
         end
         lines!(ax2, rmsz, zc; color, label=key)
     end
     axislegend(ax2; position=:rb)
-    save(joinpath(OUT, "M38_realtime_vs_delayed.png"), fig; px_per_unit=2)
-    @info "    wrote $(joinpath(OUT, "M38_realtime_vs_delayed.png"))"
+    save(joinpath(OUT, "M38_realtime_vs_delayed.png"), fig2; px_per_unit=2)
+    @info "    wrote 3 figures to $(OUT)"
 catch err
-    @warn "figure skipped (CairoMakie not on the load path?)" error = err
+    @warn "figures skipped (CairoMakie not on the load path?)" error = err
 end

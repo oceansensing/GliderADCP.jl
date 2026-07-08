@@ -278,6 +278,40 @@ Slocum-AD2CP); EVR/phase-unwrapping for burst modes (Shcherbina 2018); DIVAnd se
 Each phase = one PR-sized unit with its tests; no phase starts until the previous one's
 acceptance criteria pass.
 
+## 8a. Queued for next session (2026-07-08)
+
+1. **Shear-only apples-to-apples comparison, as a product.** Comparing the two methods'
+   final *absolute* velocities conflates different referencing/integration behavior.
+   Instead: differentiate the inverse's `u_o(z)` per yo (centered differences) to get its
+   implied shear, and surface the shear method's own pre-integration binned shear
+   (`shear_segment`'s `sh_u`/`sh_v` — currently computed inside `solve_shear` but not
+   returned) as a public product. Compare those two shear profiles directly; add the
+   metrics to `m38_validation.md` and expose e.g. `solve_shear_profile`/an
+   `inverse_shear(prof)` helper.
+2. **SeaExplorer loader duplication vs ATOMIXjulia.jl.** Both packages parse SeaExplorer
+   nav (`gli`) and science payload (`pld1`) files independently — GliderADCP.jl's is
+   `src/io/seaexplorer.jl` (`load_seaexplorer_nav`/`load_seaexplorer_pld`: gzip, NMEA
+   coord conversion, natural segment sort, boot-time/1970 filtering). Need to actually
+   read ATOMIXjulia.jl's equivalent (haven't yet this session) and compare feature-by-
+   feature (gzip? NMEA? multi-segment concat? column typing? what does it do that ours
+   doesn't, and vice versa?), then decide: standardize on the more complete one, and
+   either have one package depend on the other's loader or extract a shared minimal
+   loader package.
+3. **Strong shear near 300 m in the inverse solution — real or artifact?** Ties back to
+   the yos-8–18 deep-velocity outliers already flagged (\|u\| to 1.6 m/s at 345–605 m,
+   confirmed cast-consistent and not a compass artifact — see `m38_validation.md`).
+   Investigate: (a) is it isolated to those yos or mission-wide/persistent; (b) does
+   bottom-track-only vs DAC-only referencing agree there; (c) does the CTD/payload
+   density structure show a front near 300 m at the same time (thermal-wind-consistent
+   real feature vs geometry/QC artifact at a specific depth); (d) per-yo (not just
+   mission-wide) compass field check for yos 8–18 specifically.
+4. **`examples/m38_currents.jl` section figure fixes.** Add the missing shear-method
+   **V** panel (only U is currently plotted); add **w** panel(s) from
+   `vertical_velocity` for both methods; replace the fixed `colorrange=(-0.5, 0.5)` (it
+   saturates the inverse+BT panels) with a data-driven range (e.g. ~1st–99th percentile
+   of the actual finite values, shared across panels for comparability) so the colormap
+   spans nearly the full value range instead of clipping.
+
 ## 9. Risks & open questions
 
 - **Attitude/sign conventions** are the classic failure mode: resolved by triple-checking

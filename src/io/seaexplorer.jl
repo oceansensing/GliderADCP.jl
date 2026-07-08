@@ -1,126 +1,45 @@
-# Layer 1 — SeaExplorer navigation (.gli.sub/.raw) and payload (.pld1/.legato/...) parsers.
+# Layer 1 — SeaExplorer navigation (.gli) and payload (.pld1/.legato/…) loading.
 #
-# ALSEAMAR file conventions (verified on sea064 M38):
-#   - semicolon-separated with a trailing `;` (empty last column), optionally gzipped
-#   - segment-numbered names: `sea064.38.gli.sub.<N>[.gz]`, `sea064.38.pld1.raw.<N>[.gz]`,
-#     `sea064.38.legato.raw.<N>[.gz]`, `sea064.38.ad2cp.raw.<N>[.gz]` — N needs natural sort
-#   - nav `Timestamp` = "dd/mm/yyyy HH:MM:SS"; payload `PLD_REALTIMECLOCK` adds ".sss"
-#   - Lat/Lon in NMEA degrees·100 + decimal minutes (7001.296 = 70° 01.296′)
-#   - nav `DeadReckoning`: 1 subsurface (dead-reckoned), 0 surface GPS fix; the position
-#     jump at the 1→0 transition carries the depth-averaged current displacement.
-
-const _SEAEXPLORER_NAV_FMT = dateformat"dd/mm/yyyy HH:MM:SS"
-const _SEAEXPLORER_PLD_FMT = dateformat"dd/mm/yyyy HH:MM:SS.sss"
+# The file parsing itself lives in SeaExplorerIO.jl (shared with ATOMIXjulia.jl,
+# so loader fixes and new sensors land once): stream discovery, missing-segment
+# detection, corrupt-file skipping, NMEA and timestamp normalization. This file
+# only adapts its GliderTable into the types the ADCP pipeline uses (GliderNav,
+# DataFrame) and re-exports the bookkeeping helpers.
+#
+# ALSEAMAR file-format notes live in SeaExplorerIO; the DeadReckoning semantics
+# the DAC computation relies on: 1 subsurface (dead-reckoned), 0 surface GPS
+# fix; the position jump at the 1→0 transition carries the depth-averaged
+# current displacement.
 
 """
     nmea2deg(x) -> Float64
 
 Convert an NMEA-style coordinate (degrees·100 + decimal minutes, sign = hemisphere) to
 decimal degrees. `NaN` passes through. Example: `nmea2deg(7001.296) ≈ 70.0216`.
+(Alias of `SeaExplorerIO.nmea_to_deg`.)
 """
-function nmea2deg(x::Real)
-    isfinite(x) || return Float64(x)
-    a = abs(x)
-    d = floor(a / 100)
-    copysign(d + (a - 100d) / 60, x)
-end
+const nmea2deg = SeaExplorerIO.nmea_to_deg
 
-"""
-    seaexplorer_files(dir, stream) -> Vector{String}
-
-List segment files of one SeaExplorer stream (e.g. `"gli.sub"`, `"pld1.raw"`,
-`"legato.raw"`, `"ad2cp.raw"`) in `dir`, naturally sorted by segment number.
-"""
-function seaexplorer_files(dir::AbstractString, stream::AbstractString)
-    pat = Regex("\\." * replace(stream, "." => "\\.") * "\\.(\\d+)(\\.gz)?\$")
-    hits = Tuple{Int,String}[]
-    for f in readdir(dir)
-        m = match(pat, f)
-        m === nothing || push!(hits, (parse(Int, m.captures[1]), joinpath(dir, f)))
-    end
-    return last.(sort(hits))
-end
-
-# read one (possibly gzipped) semicolon-separated segment file into a DataFrame
-function _read_segment(path::AbstractString; timestamp_col::String)
-    bytes = endswith(path, ".gz") ?
-        open(io -> read(GzipDecompressorStream(io)), path) : read(path)
-    df = CSV.read(bytes, DataFrame;
-        delim=';', missingstring=["", "NaN"], types=Dict(timestamp_col => String),
-        silencewarnings=true, strict=false)
-    # drop the phantom column created by the trailing semicolon
-    if !isempty(names(df)) && all(ismissing, df[!, end])
-        select!(df, Not(names(df)[end]))
+# DataFrame view of a GliderTable: NaN → missing to keep the historical
+# `skipmissing`/`ismissing` idioms working on payload science columns.
+function _gt_dataframe(t::SeaExplorerIO.GliderTable)
+    df = DataFrame()
+    df.time = copy(t.time)
+    for (k, v) in t.cols
+        df[!, k] = [isnan(x) ? missing : x for x in v]
     end
     return df
-end
-
-function _read_stream(files::AbstractVector{<:AbstractString}; timestamp_col::String,
-                      fmts, mintime::Union{DateTime,Nothing})
-    isempty(files) && error("no SeaExplorer files to read")
-    dfs = DataFrame[]
-    for f in files
-        try
-            push!(dfs, _read_segment(f; timestamp_col))
-        catch err
-            @warn "SeaExplorer stream: skipping unreadable file" file = basename(f) error = sprint(showerror, err)
-        end
-    end
-    isempty(dfs) &&
-        error("no readable SeaExplorer files (all $(length(files)) failed to parse)")
-    df = reduce((a, b) -> vcat(a, b; cols=:union), dfs)
-    hasproperty(df, timestamp_col) ||
-        error("SeaExplorer stream: timestamp column `$timestamp_col` not found in any file")
-    parse1(t) = begin
-        t === missing && return missing
-        for fmt in fmts
-            p = tryparse(DateTime, t, fmt)
-            p === nothing || return p
-        end
-        missing
-    end
-    ts = [parse1(t) for t in df[!, timestamp_col]]
-    df.time = ts
-    # drop unparseable timestamps and (by default) boot-time records logged before the
-    # glider's clock is set (epoch-1970 stamps, typically with Lat=Lon=0)
-    good = findall(t -> t !== missing && (mintime === nothing || t >= mintime), ts)
-    ndropped = nrow(df) - length(good)
-    ndropped > 0 && @debug "SeaExplorer stream: dropped $ndropped invalid-timestamp records"
-    df = df[good, :]
-    sort!(df, :time)
-    return df
-end
-
-_float_col(df, name) = hasproperty(df, name) ?
-    Float64.(coalesce.(df[!, name], NaN)) : fill(NaN, nrow(df))
-_int_col(df, name, ::Type{T}, default) where {T} = hasproperty(df, name) ?
-    T.(coalesce.(df[!, name], default)) : fill(T(default), nrow(df))
-
-"""
-    missing_segments(dir, stream) -> Vector{Int}
-
-Segment numbers absent from an otherwise consecutive SeaExplorer stream sequence
-(e.g. `sea064.38.gli.sub.<N>` with N = 1…max): the gaps in mission file transfer.
-"""
-function missing_segments(dir::AbstractString, stream::AbstractString)
-    pat = Regex("\\." * replace(stream, "." => "\\.") * "\\.(\\d+)(\\.gz)?\$")
-    nums = Int[]
-    for f in readdir(dir)
-        m = match(pat, f)
-        m === nothing || push!(nums, parse(Int, m.captures[1]))
-    end
-    isempty(nums) && return Int[]
-    return setdiff(minimum(nums):maximum(nums), nums)
 end
 
 """
     load_seaexplorer_nav(src; stream="gli.sub", mintime=DateTime(2000)) -> GliderNav
 
 Read SeaExplorer navigation files (`.gli`) into a [`GliderNav`](@ref). `src` is a
-directory (all segments of `stream`, naturally sorted) or an explicit vector of file
-paths. Positions are converted from NMEA to decimal degrees. Records timestamped before
-`mintime` (boot records logged before the clock is set, stamped 1970) are dropped;
-pass `mintime=nothing` to keep everything.
+directory (all segments of `stream`, naturally sorted, with a warning listing any
+missing segment numbers) or an explicit vector of file paths. Positions are converted
+from NMEA to decimal degrees. Records timestamped before `mintime` (boot records logged
+before the clock is set, stamped 1970) are dropped; pass `mintime=nothing` to keep
+everything.
 
 ```julia
 nav = load_seaexplorer_nav("…/delayed/nav/logs")
@@ -128,35 +47,27 @@ nav = load_seaexplorer_nav("…/delayed/nav/logs")
 """
 function load_seaexplorer_nav(src; stream::AbstractString="gli.sub",
                               mintime::Union{DateTime,Nothing}=DateTime(2000))
-    files = src isa AbstractVector ? String.(src) : seaexplorer_files(src, stream)
-    if !(src isa AbstractVector)
-        miss = missing_segments(src, stream)
-        isempty(miss) ||
-            @warn "SeaExplorer $stream: missing segment numbers" missing = miss
-    end
-    df = _read_stream(files; timestamp_col="Timestamp", fmts=(_SEAEXPLORER_NAV_FMT,), mintime)
-    time = Vector{DateTime}(df.time)
-    GliderNav(time, datetime2unix.(time),
-        nmea2deg.(_float_col(df, "Lon")),
-        nmea2deg.(_float_col(df, "Lat")),
-        _float_col(df, "Heading"),
-        _float_col(df, "Declination"),
-        _float_col(df, "Pitch"),
-        _float_col(df, "Roll"),
-        _float_col(df, "Depth"),
-        _int_col(df, "NavState", Int16, -1),
-        _int_col(df, "DeadReckoning", Int8, -1),
-        _float_col(df, "Altitude"),
-        df)
+    t = SeaExplorerIO.read_gli(src; stream, epoch_min=mintime)
+    n = length(t)
+    col(name) = haskey(t, name) ? t[name] : fill(NaN, n)
+    icol(name, ::Type{T}, default) where {T} =
+        T[isfinite(v) ? T(v) : T(default) for v in col(name)]
+    GliderNav(t.time, datetime2unix.(t.time),
+        col("Lon"), col("Lat"),
+        col("Heading"), col("Declination"), col("Pitch"), col("Roll"), col("Depth"),
+        icol("NavState", Int16, -1), icol("DeadReckoning", Int8, -1),
+        col("Altitude"), _gt_dataframe(t))
 end
 
 """
     load_seaexplorer_pld(src; stream="pld1.raw", mintime=DateTime(2000)) -> DataFrame
 
 Read SeaExplorer payload science files (`pld1`, `legato`, …) into a time-sorted
-`DataFrame` (column set is payload-configuration dependent, so no strong typing here).
-A `time::DateTime` column is added from `PLD_REALTIMECLOCK`. `src` is a directory or a
-vector of file paths — pass a subset of segments to limit memory.
+`DataFrame` with a `time::DateTime` column; science columns are `Float64` with
+`missing` for empty cells. Known coordinate columns (`NAV_LATITUDE`/`NAV_LONGITUDE`)
+are converted from NMEA to decimal degrees. `src` is a directory or a vector of file
+paths — pass a subset of segments (or use `SeaExplorerIO.read_pld` with a column
+selection) to limit memory on full-resolution streams.
 
 ```julia
 pld = load_seaexplorer_pld("…/delayed/pld1/logs"; stream="legato.raw")
@@ -164,12 +75,6 @@ pld = load_seaexplorer_pld("…/delayed/pld1/logs"; stream="legato.raw")
 """
 function load_seaexplorer_pld(src; stream::AbstractString="pld1.raw",
                               mintime::Union{DateTime,Nothing}=DateTime(2000))
-    files = src isa AbstractVector ? String.(src) : seaexplorer_files(src, stream)
-    if !(src isa AbstractVector)
-        miss = missing_segments(src, stream)
-        isempty(miss) ||
-            @warn "SeaExplorer $stream: missing segment numbers" missing = miss
-    end
-    _read_stream(files; timestamp_col="PLD_REALTIMECLOCK",
-        fmts=(_SEAEXPLORER_PLD_FMT, _SEAEXPLORER_NAV_FMT), mintime)
+    _gt_dataframe(SeaExplorerIO.read_stream(src, stream;
+        skip_empty=false, epoch_min=mintime))
 end

@@ -29,7 +29,6 @@ using Printf
 using Logging
 
 using NCDatasets
-using CSV
 using DataFrames
 using CodecZlib
 using Interpolations
@@ -37,6 +36,7 @@ using GibbsSeaWater
 using NaNStatistics
 using Krylov
 using SatelliteToolboxGeomagneticField: igrfd
+using SeaExplorerIO: SeaExplorerIO, seaexplorer_files, missing_segments
 
 export AD2CPConfig, AD2CPData, BottomTrackData, GliderNav
 export load_ad2cp, load_seaexplorer_nav, load_seaexplorer_pld, seaexplorer_files

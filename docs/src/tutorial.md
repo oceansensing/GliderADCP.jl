@@ -93,6 +93,13 @@ nav = load_seaexplorer_nav("delayed/nav/logs")   # positions, DR/GPS flags, atti
 pld = load_seaexplorer_pld("delayed/pld1/logs"; stream="pld1.sub")  # CTD for sound speed
 ```
 
+The file parsing behind these lives in
+[SeaExplorerIO.jl](https://github.com/oceansensing/SeaExplorerIO.jl) (shared with
+ATOMIXjulia.jl): corrupt segment files are skipped with a warning, missing segment
+numbers are reported, and coordinate columns arrive in decimal degrees. For large
+payload streams, `SeaExplorerIO.read_pld(dir, ["LEGATO_TEMPERATURE", …])` reads only
+the columns you name.
+
 For Slocum gliders, build the equivalents from any dbd-derived table (ERDDAP, Python
 `dbdreader`, or the pure-Julia
 [JLDBDReader.jl](https://github.com/truedichotomy/JLDBDReader.jl)) with

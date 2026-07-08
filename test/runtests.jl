@@ -916,7 +916,7 @@ end
             write_synthetic_gli(joinpath(d, "sea064.38.gli.sub.5.gz"); nrows=3)
             write(joinpath(d, "sea064.38.gli.sub.3.gz"), UInt8[0x1f, 0x8b, 0xde, 0xad])
             @test missing_segments(d, "gli.sub") == [4]
-            nav = @test_logs (:warn, r"missing segment") (:warn, r"skipping unreadable") match_mode = :any load_seaexplorer_nav(d)
+            nav = @test_logs (:warn, r"missing segment") (:warn, r"unreadable log file") match_mode = :any load_seaexplorer_nav(d)
             @test length(nav) == 10                      # rows from the 3 good segments
         end
         # --- load_ad2cp: corrupt netCDF alongside a good one ---

@@ -288,15 +288,23 @@ acceptance criteria pass.
    mission-mean v-shear agrees, mission-mean u-shear exposes the calibration's
    absorption of track-aligned real shear (heading-diversity caveat quantified) — feeds
    Task 3.
-2. **SeaExplorer loader duplication vs ATOMIXjulia.jl.** Both packages parse SeaExplorer
-   nav (`gli`) and science payload (`pld1`) files independently — GliderADCP.jl's is
-   `src/io/seaexplorer.jl` (`load_seaexplorer_nav`/`load_seaexplorer_pld`: gzip, NMEA
-   coord conversion, natural segment sort, boot-time/1970 filtering). Need to actually
-   read ATOMIXjulia.jl's equivalent (haven't yet this session) and compare feature-by-
-   feature (gzip? NMEA? multi-segment concat? column typing? what does it do that ours
-   doesn't, and vice versa?), then decide: standardize on the more complete one, and
-   either have one package depend on the other's loader or extract a shared minimal
-   loader package.
+2. **SeaExplorer loader duplication vs ATOMIXjulia.jl — DONE (2026-07-08).**
+   Resolved by extracting **SeaExplorerIO.jl** (`/Users/gong/GitHub/SeaExplorerIO.jl`,
+   GitHub `oceansensing/SeaExplorerIO.jl`): a dependency-minimal shared file layer
+   (CodecZlib + Dates + OrderedCollections only) merging the best of both loaders —
+   ATOMIXjulia's lean column-selective parser, GliderTable, schema guarantees and
+   mixed-header alignment; GliderADCP's generic stream discovery, missing_segments
+   transfer-gap detection, and NMEA conversion extended to payload coordinates. Both
+   packages now wrap it with their historical APIs unchanged
+   (`load_seaexplorer_nav`/`load_seaexplorer_pld` here return GliderNav/DataFrame as
+   before; `read_gli`/`read_pld`/`GliderTable` re-exported there). Behavior change to
+   note: `load_seaexplorer_pld` now converts `NAV_LATITUDE`/`NAV_LONGITUDE` from NMEA
+   to decimal degrees (previously returned raw NMEA — a gap, now fixed), and payload
+   columns are Float64-with-missing rather than CSV-inferred types. Test totals:
+   SeaExplorerIO 63, GliderADCP 328, ATOMIXjulia 867 — all green; the `@ocean` stack
+   loads all three together. Future loader fixes and new sensors (DO, fluorometer, …)
+   land once, in SeaExplorerIO.
+
 3. **Strong shear near 300 m — RESOLVED (2026-07-08): artifact of false bottom-track
    locks.** 99.7 % of M38's BT "fixes" were a near-field water-borne target ~1.7 m below
    the transducer (the seafloor was never in range); anchoring to it contradicted the

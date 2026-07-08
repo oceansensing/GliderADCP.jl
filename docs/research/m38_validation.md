@@ -1,6 +1,6 @@
 # M38 validation notes — GliderADCP.jl vs the prior Python processing
 
-> 2026-07-07. Full-mission run of `examples/m38_currents.jl` (sound-speed correction from
+> 2026-07-07. Full-mission run of `examples/currents.jl m38` (sound-speed correction from
 > payload CTD, QC, IGRF declination, DAC + bottom-track inverse and shear solutions,
 > 127 solved yos — matching the 126 yos in the prior processing; the ADCP was
 > duty-cycled Nov 3–27 within the Nov–Mar mission).
@@ -265,7 +265,7 @@ and the raw relative velocities show.
 
 ## Task 4 (2026-07-08): section figures, w products — and a major revision
 
-`examples/m38_currents.jl` now produces four-panel U/V sections (inverse and shear,
+`examples/currents.jl` now produces four-panel U/V sections (inverse and shear,
 both components), a two-panel **w** figure via the new [`solve_w`] product
 (`:direct` = binned `U_rel + dP/dt`; `:inverse` = ocean-w bins solved jointly with
 per-ping glider w anchored to the pressure-derived vertical velocity — the vertical
@@ -296,7 +296,7 @@ Full-pipeline comparison of the two AD2CP data routes, everything else held iden
 calibration, DAC): the **real-time** `$PNOR` ASCII telemetry stream (`load_pnor`;
 0.01 m/s velocity quantization, 0.1° attitude, no accelerometer, no BT records) vs the
 **delayed-mode** full-resolution `.ad2cp` binary. Script:
-`examples/m38_realtime_vs_delayed.jl`; gated acceptance test in the suite.
+`examples/realtime_vs_delayed.jl m38`; gated acceptance test in the suite.
 
 Coverage first (the Task-6 machinery reports it directly): the stream carries
 123,950 of 124,752 ensembles (99.4%). The payload stopped writing the stream on
@@ -348,7 +348,7 @@ measurable (2–3 cm/s) quantization cost.
 
 The full stack (SeaExplorerIO multi-route loading → QC → calibration → DAC/BT →
 all solvers → figures) run end to end on two further missions
-(`examples/m37_currents.jl`, `examples/m59_currents.jl`):
+(`examples/currents.jl m37 m59`):
 
 **M37 (Jan Mayen, Oct 2022, ridge slopes).** Native binary only (80,126 ens,
 near-continuous). Shear-bias slope −4.29×10⁻⁴ s⁻¹ — matching M38's −4×10⁻⁴.

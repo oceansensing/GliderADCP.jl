@@ -1,28 +1,19 @@
 # Real-time ($PNOR telemetry stream) vs delayed-mode (.ad2cp binary) products,
-# parameterized over missions — the Task-5 methodology (see
-# m38_realtime_vs_delayed.jl and docs/research/m38_validation.md §Task 5)
-# applied to any mission: both AD2CP routes run the IDENTICAL pipeline (same
-# nav, CTD sound speed, QC, declination, shear-bias calibration, DAC), so the
-# data source is the only difference.
+# run symmetrically over missions — the Task-5 methodology
+# (docs/research/m38_validation.md §Task 5) applied to any mission: both AD2CP
+# routes run the IDENTICAL pipeline (same nav, CTD sound speed, QC, declination,
+# shear-bias calibration, DAC), so the data source is the only difference.
 #
+#   JULIA_LOAD_PATH="@:@ocean:@stdlib" julia +1.13 --project=. examples/realtime_vs_delayed.jl
 #   JULIA_LOAD_PATH="@:@ocean:@stdlib" julia +1.13 --project=. examples/realtime_vs_delayed.jl m37 m59
 
 using GliderADCP
 using DataFrames, Dates, Statistics, NaNStatistics
 using Printf
+include("missions.jl")
 
-const GDATA = "/Users/gong/oceansensing Dropbox/C2PO/glider/gliderData"
 const OUT = joinpath(@__DIR__, "output")
 mkpath(OUT)
-
-const MISSIONS = Dict(
-    "m37" => (label="M37", dir=joinpath(GDATA, "sea064-20221021-norse-janmayen-complete"),
-              bin="ad2cp/sea064_M37.ad2cp", prefix="37", lat=70.9),
-    "m38" => (label="M38", dir=joinpath(GDATA, "sea064-20221102-norse-lofoten-complete"),
-              bin="ad2cp/102381_sea064_M38/sea064_M38.ad2cp", prefix="38", lat=69.5),
-    "m59" => (label="M59", dir=joinpath(GDATA, "sea064-20240720-nesma-passengers-complete"),
-              bin="ad2cp/sea064_M59.ad2cp", prefix="59", lat=39.2),
-)
 
 function agreement(a, b, col; nmin=10)
     j = innerjoin(a, b; on=[:yo, :z], makeunique=true)
@@ -32,28 +23,29 @@ function agreement(a, b, col; nmin=10)
     (j=j, m=m, col=col, n=count(m), r=cor(c1[m], c2[m]), rms=sqrt(mean(d .^ 2)), bias=mean(d))
 end
 
-function compare_mission(cfg)
-    @info "== $(cfg.label): real-time (\$PNOR stream) vs delayed (.ad2cp binary) =="
-    adcp_d = read_ad2cp(joinpath(cfg.dir, cfg.bin))
-    adcp_r = load_pnor(joinpath(cfg.dir, "delayed/pld1/logs"); stream="$(cfg.prefix).ad2cp.raw")
+function compare_mission(m)
+    @info "== $(m.label): real-time (\$PNOR stream) vs delayed (.ad2cp binary) =="
+    adcp_d = read_ad2cp(joinpath(m.dir, m.binary))
+    adcp_r = load_pnor(joinpath(m.dir, "delayed/pld1/logs"); stream="$(m.prefix).ad2cp.raw")
     cov_d, cov_r = coverage(adcp_d), coverage(adcp_r)
     @info "  delayed: $(cov_d.n) ens $(cov_d.t_start)→$(cov_d.t_end); " *
           "stream: $(cov_r.n) ens $(cov_r.t_start)→$(cov_r.t_end) " *
           "($(round(100cov_r.n / cov_d.n, digits=1))%)"
-    nav = load_seaexplorer_nav(joinpath(cfg.dir, "delayed/nav/logs"); stream="$(cfg.prefix).gli.sub")
+    nav = load_seaexplorer_nav(joinpath(m.dir, "delayed/nav/logs"); stream="$(m.prefix).gli.sub")
+    lat = round(nanmedian(nav.lat), digits=1)
     dac = compute_dac(nav)
-    pld = load_seaexplorer_pld(joinpath(cfg.dir, "delayed/pld1/logs"); stream="$(cfg.prefix).pld1.sub")
+    pld = load_seaexplorer_pld(joinpath(m.dir, "delayed/pld1/logs"); stream="$(m.prefix).pld1.sub")
     ok = findall(i -> !ismissing(pld.LEGATO_SALINITY[i]) && !ismissing(pld.LEGATO_TEMPERATURE[i]) &&
                       !ismissing(pld.LEGATO_PRESSURE[i]), 1:nrow(pld))
     ctd_t = datetime2unix.(pld.time[ok])
     c_ctd = soundspeed_from_ctd.(Float64.(pld.LEGATO_SALINITY[ok]),
-        Float64.(pld.LEGATO_TEMPERATURE[ok]), Float64.(pld.LEGATO_PRESSURE[ok]), 5.0, cfg.lat)
+        Float64.(pld.LEGATO_TEMPERATURE[ok]), Float64.(pld.LEGATO_PRESSURE[ok]), 5.0, lat)
 
     prods = Dict{String,DataFrame}()
     for (lab, a, look) in (("delayed", adcp_d, :auto), ("realtime", adcp_r, :down))
         apply_soundspeed!(a, soundspeed_correction(a, ctd_t, c_ctd))
         qc!(a)
-        p = process_pings(a; lat=cfg.lat, look=look, declination=magnetic_declination(nav, a.t))
+        p = process_pings(a; lat=lat, look=look, declination=magnetic_declination(nav, a.t))
         calibrate_shear_bias!(p)
         prods["$(lab)_inv"] = solve_inverse(p, dac)
         prods["$(lab)_shr"] = solve_shear(p, dac)
@@ -84,9 +76,9 @@ function dgrid(s)
     grid_profiles(d)
 end
 
-for key in (isempty(ARGS) ? ["m37", "m59"] : lowercase.(ARGS))
-    cfg = MISSIONS[key]
-    stats, prods = compare_mission(cfg)
+for key in selected_missions()
+    m = MISSIONS[key]
+    stats, prods = compare_mission(m)
 
     # (a) side-by-side U/V sections, one shared color scale
     sec_d = grid_profiles(prods["delayed_inv"])
@@ -97,7 +89,7 @@ for key in (isempty(ARGS) ? ["m37", "m59"] : lowercase.(ARGS))
                           (sec_r, :U, "U (east) — real-time (\$PNOR stream)"),
                           (sec_r, :V, "V (north) — real-time")];
         colorrange=(-crUV, crUV))
-    save(joinpath(OUT, "$(cfg.label)_realtime_vs_delayed_sections.png"), figs)
+    save(joinpath(OUT, "$(m.label)_realtime_vs_delayed_sections.png"), figs)
 
     # (b) difference sections (real-time − delayed), inverse + shear, amplified scale
     dg_i, dg_s = dgrid(stats["inv u"]), dgrid(stats["shr u"])
@@ -107,13 +99,13 @@ for key in (isempty(ARGS) ? ["m37", "m59"] : lowercase.(ARGS))
                           (dg_s, :U, "ΔU — shear method"),
                           (dg_s, :V, "ΔV — shear method")];
         colorrange=(-crD, crD))
-    save(joinpath(OUT, "$(cfg.label)_realtime_vs_delayed_diff_sections.png"), figd)
+    save(joinpath(OUT, "$(m.label)_realtime_vs_delayed_diff_sections.png"), figd)
 
     # (c) scatter + rms-by-depth summary
     fig = Figure(size=(1000, 420))
     su = stats["inv u"]
     ax1 = Axis(fig[1, 1]; xlabel="delayed u (m/s)", ylabel="real-time u (m/s)",
-        title=@sprintf("%s inverse u: r=%.4f, rms=%.1f mm/s", cfg.label, su.r, 1000su.rms), aspect=1)
+        title=@sprintf("%s inverse u: r=%.4f, rms=%.1f mm/s", m.label, su.r, 1000su.rms), aspect=1)
     scatter!(ax1, su.j.u[su.m], su.j.u_1[su.m]; markersize=2, color=(:steelblue, 0.3))
     ablines!(ax1, 0, 1; color=:black, linestyle=:dash)
     ax2 = Axis(fig[1, 2]; xlabel="rms difference (mm/s)", ylabel="depth (m)",
@@ -131,6 +123,6 @@ for key in (isempty(ARGS) ? ["m37", "m59"] : lowercase.(ARGS))
         lines!(ax2, rmsz, zc; color, label=key2)
     end
     axislegend(ax2; position=:rb)
-    save(joinpath(OUT, "$(cfg.label)_realtime_vs_delayed.png"), fig; px_per_unit=2)
-    @info "  wrote $(joinpath(OUT, "$(cfg.label)_realtime_vs_delayed.png"))"
+    save(joinpath(OUT, "$(m.label)_realtime_vs_delayed.png"), fig; px_per_unit=2)
+    @info "  wrote $(joinpath(OUT, "$(m.label)_realtime_vs_delayed.png"))"
 end

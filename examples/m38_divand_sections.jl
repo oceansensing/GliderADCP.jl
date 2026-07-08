@@ -1,10 +1,10 @@
 # DIVAnd-mapped velocity sections from GliderADCP.jl inverse profiles.
 #
-# Reads the per-yo profiles produced by examples/m38_currents.jl and maps them onto a
+# Reads the per-yo profiles produced by examples/currents.jl and maps them onto a
 # continuous time–depth section with DIVAnd (variational analysis; Barth et al. 2014),
 # as a publication-quality alternative to the per-segment heatmap.
 #
-# Run after m38_currents.jl:
+# Run after `julia examples/currents.jl m38` (needs output/M38_profiles_inverse.csv):
 #   JULIA_LOAD_PATH="@:@ocean:@stdlib" julia +1.13 --project=. examples/m38_divand_sections.jl
 
 using GliderADCP, CSV, DataFrames, Dates, Statistics

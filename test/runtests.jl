@@ -1009,7 +1009,7 @@ end
         @testset "M38 acceptance: real-time vs delayed pipeline (Task 5)" begin
             # identical pipeline on the $PNOR telemetry stream vs the MIDAS netCDF,
             # restricted to the first 3 days to bound runtime (full mission:
-            # examples/m38_realtime_vs_delayed.jl — inverse r=0.9996, rms 4.6 mm/s)
+            # examples/realtime_vs_delayed.jl m38 — inverse r=0.9996, rms 4.6 mm/s)
             a_d = load_ad2cp(M38_NC)
             a_r = load_pnor(M38_PLD)
             tcut = a_r.t[1] + 3 * 86400

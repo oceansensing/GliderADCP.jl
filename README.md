@@ -21,7 +21,7 @@ constraints). Validated three ways: machine-exact parity against `gliderad2cp` g
 truth; synthetic-truth recovery for both solvers; and an independent real-data check —
 the DAC-only inverse's glider velocities match unseen bottom-track ground truth at
 r = 0.97 (median difference ≈ 7 cm/s). A full-mission example
-([examples/m38_currents.jl](examples/m38_currents.jl)) produces DAC+bottom-track
+([examples/currents.jl](examples/currents.jl)) produces DAC+bottom-track
 inverse and shear U/V sections with IGRF declination, provenance netCDF export, and
 dive/climb consistency of 2 cm/s; the vertical-structure validation against the prior
 Python processing is documented in
@@ -30,7 +30,7 @@ Python processing is documented in
 **Documentation:** start with the
 [tutorial](docs/src/tutorial.md) (science + worked pipeline); API reference builds with
 Documenter (`julia --project=docs docs/make.jl`). Design record: [PLAN.md](PLAN.md) and
-[docs/research/](docs/research/). Examples: [examples/m38_currents.jl](examples/m38_currents.jl)
+[docs/research/](docs/research/). Examples: [examples/currents.jl](examples/currents.jl)
 (full mission) and [examples/m38_divand_sections.jl](examples/m38_divand_sections.jl)
 (DIVAnd-mapped sections).
 

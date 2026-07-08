@@ -79,11 +79,12 @@ The native reader was validated **bit-for-bit** against the MIDAS export of the 
 file (every velocity, amplitude, correlation, attitude and bottom-track sample), and the
 `$PNOR` stream reproduces the full-resolution record at its reduced precision
 (r = 1.000 for heading and beam velocities). Run through the full pipeline, the stream
-yields essentially the delayed-mode product: on the reference mission the inverse
-solution matches the binary-derived one to r = 0.9996 and 4.6 mm/s rms with zero bias
-(the 0.01 m/s per-sample quantization averages down in the bin means), so real-time or
-onboard processing from this stream is quantitatively viable — see
-`examples/m38_realtime_vs_delayed.jl`. Two caveats: pass `look=` explicitly to
+yields essentially the delayed-mode product: on all three validated missions the
+inverse solution matches the binary-derived one to r ≥ 0.9984 and 3.7–5.1 mm/s rms with
+zero bias, independent of signal amplitude (the agreement holds through a >1 m/s Gulf
+Stream jet on M59) — the 0.01 m/s per-sample quantization averages down in the bin
+means, so real-time or onboard processing from this stream is quantitatively viable.
+See `examples/realtime_vs_delayed.jl`. Two caveats: pass `look=` explicitly to
 `process_pings` (the stream has no accelerometer), and expect the shear-method product
 to carry ~2.5 cm/s rms extra noise, since vertical integration accumulates the
 quantization error that the inverse localizes. Platform data:
@@ -165,8 +166,9 @@ stats = qc!(adcp)          # masks rejected samples to NaN, returns per-screen f
 | first cell | ringing | transducer recovery |
 | instrument error ≠ 0 | flagged pings | hardware self-reports |
 
-On M38 the defaults reject ≈50 % of beam samples over the full mission — dominated by
-the SNR floor beyond the useful range and the surface mask; the surviving samples are
+The defaults reject ≈50 % of beam samples on M38 and 57–58 % on the other two
+validated missions (M37, M59) — dominated by the SNR floor beyond the useful range and
+the surface mask; the surviving samples are
 the ones the solvers should see. Loosening the surface mask to 2 m and keeping the first
 cell was tested and does **not** change the near-surface answer (it slightly degrades
 the surface-drift agreement) — the defaults are not hiding signal.
@@ -292,8 +294,22 @@ The shear method is unbiased *per sample* after calibration, but it **integrates
 per-bin noise random-walks into per-yo excursions of ±0.1–0.3 m/s, whereas the inverse
 localizes each sample to its depth bin (per-bin consistency ≈2 cm/s on M38). This is
 not an implementation artifact — it is the structural difference between the methods,
-and the reason the lADCP community moved to inversions. Use the shear solution as an
-independent cross-check, reading its per-yo wiggles with the drift envelope in mind.
+and the reason the lADCP community moved to inversions. The cleanest demonstration is
+the real-time comparison: given identically quantized input samples, the inverse's
+error stays a flat 4–5 mm/s to 1000 m while the shear method's grows with depth to
+2–3 cm/s, on all three validated missions. Use the shear solution as an independent
+cross-check, reading its per-yo wiggles with the drift envelope in mind.
+
+!!! note "Which method?"
+    The inverse is this package's production method: it localizes sample errors that
+    the shear method integrates, fuses constraints (DAC, screened bottom track, drift)
+    the shear method cannot, and closes the DAC at 1–2 mm/s on every validated
+    mission. Keep the shear method as the standard second opinion — the two fail
+    differently, so their agreement (r = 0.92–0.98 across missions) is the single best
+    end-to-end health check; a collapse in that agreement is how the false
+    bottom-track contamination was caught. Both stand on the same DAC reference, so
+    absolute accuracy remains a navigation question for either. The full argument and
+    its caveats: `docs/research/m38_validation.md` §Method verdict.
 
 Two shear-content products support method intercomparison and finestructure work:
 [`solve_shear_profile`](@ref) returns the shear method's pre-integration binned shear,
@@ -308,17 +324,24 @@ shear (see the validation report for the full analysis).
 ```julia
 # 1. dive vs climb consistency: solve half-yos independently, compare common bins.
 #    M38: r = 0.98, median |Δ| = 2 cm/s. Values ≫ 5 cm/s indicate attitude/geometry issues.
-# 2. DAC closure: depth-mean of each profile vs its DAC (M38 median 5 mm/s).
-# 3. Bottom-track cross-check: run the inverse with wbt = 0 and compare its glider
-#    velocities against bt_velocity where the seafloor was in range
-#    (M38: r_v = 0.97, median |Δ| ≈ 7 cm/s — an independent end-to-end validation).
+# 2. DAC closure: depth-mean of each profile vs its DAC
+#    (median 1–2 mm/s on all three validated missions; ≫ 1 cm/s ⇒ referencing errors).
+# 3. Shear-vs-inverse agreement on common (yo, z) bins
+#    (r = 0.92–0.98, rms 3–7 cm/s across missions; a collapse here flags contamination
+#    anywhere in the chain — this check exposed the false bottom-track defect).
 # 4. Surface drift: mean of the shallowest bins vs surface_drift after each yo
 #    (M38: median |Δ| = 4 cm/s).
+# 5. Bottom-track plausibility, only for locks surviving bt_valid: implied water depth
+#    (glider depth + BT range) must match bathymetry (M37: 16 genuine locks, 390–809 m;
+#    M38/M59: zero — correct). Do NOT validate BT against water-track velocities:
+#    false locks pass that test.
 ```
 
-These four checks catch, respectively: transform/sign errors (1), referencing errors
-(2), anything in the whole chain (3), and near-surface problems (4). The package's test
-suite contains templates for each.
+These five checks catch, respectively: transform/sign errors (1), referencing errors
+(2), contamination anywhere in the chain (3), near-surface problems (4), and false
+bottom locks (5). Add `coverage(adcp)`/`data_gaps` for the mission's duty-cycle shape.
+The package's test suite contains templates for each; the consolidated findings behind
+the recommended thresholds live in the [QA/QC guide](qaqc.md).
 
 ## 9. Products
 

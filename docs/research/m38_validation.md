@@ -343,3 +343,76 @@ jet — the real-time penalty does not scale with signal amplitude. The
 conclusion generalizes: a telemetry-stream inverse product is the delayed
 product to ~5 mm/s rms on every mission tested; only the shear method pays a
 measurable (2–3 cm/s) quantization cost.
+
+## Three-mission workflow validation (2026-07-08): M37 and M59
+
+The full stack (SeaExplorerIO multi-route loading → QC → calibration → DAC/BT →
+all solvers → figures) run end to end on two further missions
+(`examples/m37_currents.jl`, `examples/m59_currents.jl`):
+
+**M37 (Jan Mayen, Oct 2022, ridge slopes).** Native binary only (80,126 ens,
+near-continuous). Shear-bias slope −4.29×10⁻⁴ s⁻¹ — matching M38's −4×10⁻⁴.
+DAC closure median 2 mm/s; shear-vs-inverse r = 0.91/0.92 (rms 3.4 cm/s).
+**The BT screens passed genuine locks for the first time**: 16 all-beam fixes,
+glider at 384–782 dbar with seafloor 5.6–26.6 m below (implied water depth
+390–809 m, consistent with the ridge bathymetry) — the same defaults that
+reject 100 % of M38's false locks. GLIMPSE nav = strict subset of delayed
+(38,704 rows, all deduplicated); the $PNOR stream holds 15 ensembles the
+instrument card did not retain.
+
+**M59 (NESMA, subtropical NW Atlantic, Jul–Sep 2024).** Both binary and MIDAS
+netCDF exist: reader parity re-verified on a third mission (204,248 ensembles,
+max |Δvel| = 0.0). The glider crosses a Gulf Stream jet (u > 1 m/s reaching
+below 500 m); DAC closure median 1 mm/s over 154 yos; shear-vs-inverse
+r = 0.96/0.95 (rms 7 cm/s against a ±0.85 m/s signal). Zero BT fixes survive
+screening — correct in 4–5 km of water. **Shear-bias slope −3.07×10⁻⁵ s⁻¹, an
+order of magnitude below the 2022 missions on the same instrument** → the bias
+is configuration/mission-dependent, not an instrument constant; it must be
+measured per mission (which `calibrate_shear_bias!` does).
+
+**GLIMPSE-route findings** (SeaExplorerIO 0.2.x): server exports carry
+version-dependent extra columns (M38's 2022 export: `AD2CP_*_c` onboard current
+estimates, 41,892 finite values; NESMA's 2024 export adds
+`LEGATO_SOUND_VELOCITY` etc.); merged loading attaches them to full-resolution
+rows while deduplicating all telemetered duplicates. On every mission checked
+the GLIMPSE record was a strict subset of the glider-computer download — the
+merge's value is the extra columns plus insurance against incomplete downloads.
+Zero-byte unsynced cloud placeholders are reported (`no rows parsed`), not
+silently skipped.
+
+## Method verdict (2026-07-08): the inverse is the production method
+
+Recorded as the project's standing conclusion, with its evidence and its limits.
+
+**The case is mechanistic, not just empirical.** The real-time comparison
+isolated the structural difference: feed both methods identically quantized
+samples and the inverse's error stays a flat 4–5 mm/s floor to 1000 m while the
+shear method's grows with depth to 2–3 cm/s — on three missions in three ocean
+regimes, independent of signal amplitude (unchanged through M59's >1 m/s jet).
+Integration accumulates what the inverse localizes. The same mechanism accounts
+for the shear method's per-yo random-walk drift (±0.1–0.3 m/s), its full
+inheritance of the range-dependent bias, and its ≈+0.09 m/s near-surface bias
+vs GPS drift. The inverse additionally fuses constraints the shear method
+cannot (genuine BT on M37, surface drift, pressure-anchored w), closes the DAC
+at 1–2 mm/s, and reproduces dive-vs-climb at r = 0.98.
+
+**Why not "undeniably better", stated for the record:**
+1. Both methods stand on the same DAC reference — absolute accuracy is still
+   dominated by navigation quality, and that layer has only been validated
+   internally (closure, drift), never against an independent instrument
+   (mooring / ship ADCP). That is the remaining gap.
+2. In the complete-sampling, uniform-weighting limit the two estimators
+   coincide (Visbeck 2002); the inverse's advantage is robustness to real-world
+   imperfection — gaps, uneven bin occupancy, QC holes, quantization — which
+   our missions show is always present.
+3. The inverse has regularization knobs; misconfigured smoothing produces
+   confident-looking wrong answers (the over-smoothed legacy Python profiles).
+   The shear method's noise is at least visibly noise.
+4. The false-BT episode cuts both ways: for a time the *inverse* was the
+   contaminated product, precisely because it is the method that ingests
+   constraints. Power and attack surface come together.
+
+**Standing role of the shear method:** not a competitor but the standard second
+opinion. The two estimators fail differently, so their agreement
+(r = 0.92–0.98 across missions) is the pipeline's most valuable end-to-end
+health metric — it is the check that exposed the false-BT contamination.

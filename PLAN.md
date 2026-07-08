@@ -344,6 +344,36 @@ acceptance criteria pass.
    and coverage units; M38 acceptance: 72 gaps totalling 104 days (duty cycle) reported,
    nav segment sequence complete.
 
+### 8b. Post-queue work (2026-07-08, later the same day)
+
+All six §8a tasks closed, then:
+
+1. **GLIMPSE-server route + multi-download dedup (SeaExplorerIO 0.2.x).** GLIMPSE
+   `.all.csv` exports (YO_NUMBER column, ±9999 sentinels, version-dependent derived
+   columns) read natively; readers accept vectors of directories and priority-ranked
+   stream lists; `merge_tables` dedups by exact timestamp, highest resolution winning,
+   columns coalesced. ±9999 sentinels parse to missing everywhere by default. Zero-row
+   sources (unsynced cloud placeholders — seen in the wild on M38) warn. Both downstream
+   packages migrated; acceptance on NESMA and M38 glimpse data.
+2. **Three-mission workflow validation.** `examples/m37_currents.jl` (Jan Mayen: genuine
+   BT — 16 locks pass the same screens that reject all of M38's false ones) and
+   `examples/m59_currents.jl` (NESMA: binary↔netCDF parity max |Δvel| = 0 on a third
+   mission; Gulf Stream jet crossing; shear-bias slope an order of magnitude below the
+   2022 missions ⇒ config-dependent, measure per mission). Real-time vs delayed
+   generalized (`examples/realtime_vs_delayed.jl`): inverse = delayed to 3.7–5.1 mm/s,
+   zero bias, on all three missions, amplitude-independent.
+3. **Method verdict recorded** (validation doc §Method verdict; tutorial "Which
+   method?" box): the inverse is the production method — mechanistic case
+   (localization vs integration), with stated limits (shared DAC reference; independent
+   -instrument validation still open; regularization caveat). Shear method retained as
+   the standard second opinion / health metric.
+4. **Consolidated QA/QC guide** (`docs/src/qaqc.md`, in the Documenter pages): all
+   QA/QC findings — screening rates, effective range, false-BT anatomy and the
+   plausibility check, per-mission bias calibration, compass, coverage/missing-data
+   contract, sentinels, multi-route dedup, real-time stream QA, the five per-mission
+   health metrics with validated values. Stale pre-Task-3 BT numbers in tutorial §8
+   fixed (retracted r_v = 0.97 claim removed, closure updated to 1–2 mm/s).
+
 ## 9. Risks & open questions
 
 - **Attitude/sign conventions** are the classic failure mode: resolved by triple-checking

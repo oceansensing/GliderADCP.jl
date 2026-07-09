@@ -136,16 +136,17 @@ acceptance tests that run on real missions when the data is present.
    to machine precision (XYZ agreement 2×10⁻¹⁶); the regridded profiles match at
    r = 0.996 (residual = their small-angle cell-depth approximation, which this package
    avoids). `Slocum-AD2CP`'s row-dropped 3-beam matrix is reproduced as a parity mode.
-2. **Native binary vs MIDAS netCDF** — bit-identical on two missions (M38, M59): every
+2. **Native binary vs MIDAS netCDF** — bit-identical on three missions (M38, M48, M59): every
    velocity, amplitude, correlation, attitude and bottom-track sample, `max |Δvel| = 0`.
 3. **Synthetic-truth recovery** — both solvers recover a prescribed depth-varying
    velocity field from synthetic pings to the bin-discretization floor (permanent tests).
-4. **Three-mission cross-validation** — the full pipeline run on M37 (Jan Mayen), M38
-   (Lofoten), M59 (subtropical NW Atlantic): DAC closure 1–2 mm/s, dive-vs-climb
-   consistency r = 0.98 (≈2 cm/s), shear-vs-inverse agreement r = 0.92–0.98.
+4. **Four-mission cross-validation** — the full pipeline run on M37/M48 (Jan Mayen
+   2022/2023), M38 (Lofoten), M59 (subtropical NW Atlantic): DAC closure 1–2 mm/s,
+   dive-vs-climb med |Δ| ≈ 2 cm/s, shear-vs-inverse agreement r = 0.88–0.98 at
+   3.4–7 cm/s rms.
 5. **Real-time vs delayed** — the same pipeline on the `$PNOR` telemetry stream vs the
-   full-resolution binary: the inverse product is the delayed product to 3.7–5.1 mm/s
-   rms with zero bias, on all three missions, independent of signal amplitude (unchanged
+   full-resolution binary: the inverse product is the delayed product to 3.2–5.1 mm/s
+   rms with zero bias, on all four missions, independent of signal amplitude (unchanged
    through an M59 Gulf Stream jet > 1 m/s). The shear method pays 2–3 cm/s to stream
    quantization.
 6. **Data-QC discovery** — on M38, 99.7% of bottom-track locks proved false (near-field
@@ -221,7 +222,7 @@ examples/missions.jl              shared mission registry
   collapses well before the last cell (~15–17 m of a configured 30 m); `cell_quality`
   shows where, and `corr ≥ 80` is recommended for conservative shear-method work.
 - **The range-dependent shear bias is mission/configuration-dependent** (−4×10⁻⁴ s⁻¹ in
-  2022 vs −3×10⁻⁵ s⁻¹ in 2024 on the same instrument) — always calibrate per mission.
+  2022, −2.4×10⁻⁴ in 2023, −3×10⁻⁵ in 2024 on the same instrument) — always calibrate per mission.
 - **Deferred with rationale** (see PLAN.md): full Merckelbach flight model (the ADCP
   supersedes it for w and through-water speed), burst-mode EVR (no local burst data),
   compass *correction* (diagnostic in place; correction is a research task).

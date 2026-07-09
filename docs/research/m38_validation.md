@@ -416,3 +416,28 @@ at 1–2 mm/s, and reproduces dive-vs-climb at r = 0.98.
 opinion. The two estimators fail differently, so their agreement
 (r = 0.92–0.98 across missions) is the pipeline's most valuable end-to-end
 health metric — it is the check that exposed the false-BT contamination.
+
+## M48 (2026-07-09): fourth mission, added via the symmetric registry
+
+sea064 M48 (Jan Mayen, Nov 2023) processed with one registry entry in
+`examples/missions.jl` — no code changes. 124,081 ensembles, near-continuous
+(5 gaps, 0.7 days), 255 yos, a shallow bank-crossing mission (profiles truncate
+at ~200 m over the crests).
+
+- **Binary ↔ MIDAS netCDF parity on a third export: max |Δvel| = 0.0.**
+- **Genuine bottom track again** (Jan Mayen ridge): 148 screened fixes
+  (18 all-beam), implied water depth 162–589 m — independently corroborated by
+  the bathymetry arches visible in the velocity sections.
+- **Shear-bias slope −2.44×10⁻⁴ s⁻¹** — a 2023 point between the 2022
+  (−4.3×10⁻⁴) and 2024 (−3.1×10⁻⁵) values; the per-mission calibration rule
+  stands.
+- Health checks: DAC closure median 2 mm/s (elevated to 1–3.5 cm/s in two
+  clusters of yos coinciding with the bank crossings — short shallow yos with
+  fewer bins constrain closure less); dive-vs-climb med |Δ| 2.2 cm/s
+  (r = 0.82/0.86); shear-vs-inverse rms 3.6 cm/s at r = 0.88/0.90 — the same
+  rms as the other missions, with lower r because this weak-flow regime has
+  less signal variance, not more disagreement.
+- **Real-time vs delayed, fourth confirmation**: inverse r = 0.9987/0.9990,
+  rms 3.2/3.3 mm/s, zero bias, identical 255 yos (stream covers 98.9%);
+  shear method ~2 cm/s; w rms 0.5 mm/s. Cross-mission inverse range is now
+  3.2–5.1 mm/s over four missions.

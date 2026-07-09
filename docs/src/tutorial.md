@@ -79,8 +79,8 @@ The native reader was validated **bit-for-bit** against the MIDAS export of the 
 file (every velocity, amplitude, correlation, attitude and bottom-track sample), and the
 `$PNOR` stream reproduces the full-resolution record at its reduced precision
 (r = 1.000 for heading and beam velocities). Run through the full pipeline, the stream
-yields essentially the delayed-mode product: on all three validated missions the
-inverse solution matches the binary-derived one to r ≥ 0.9984 and 3.7–5.1 mm/s rms with
+yields essentially the delayed-mode product: on all four validated missions the
+inverse solution matches the binary-derived one to r ≥ 0.9984 and 3.2–5.1 mm/s rms with
 zero bias, independent of signal amplitude (the agreement holds through a >1 m/s Gulf
 Stream jet on M59) — the 0.01 m/s per-sample quantization averages down in the bin
 means, so real-time or onboard processing from this stream is quantitatively viable.
@@ -297,7 +297,7 @@ not an implementation artifact — it is the structural difference between the m
 and the reason the lADCP community moved to inversions. The cleanest demonstration is
 the real-time comparison: given identically quantized input samples, the inverse's
 error stays a flat 4–5 mm/s to 1000 m while the shear method's grows with depth to
-2–3 cm/s, on all three validated missions. Use the shear solution as an independent
+2–3 cm/s, on all four validated missions. Use the shear solution as an independent
 cross-check, reading its per-yo wiggles with the drift envelope in mind.
 
 !!! note "Which method?"
@@ -305,7 +305,7 @@ cross-check, reading its per-yo wiggles with the drift envelope in mind.
     the shear method integrates, fuses constraints (DAC, screened bottom track, drift)
     the shear method cannot, and closes the DAC at 1–2 mm/s on every validated
     mission. Keep the shear method as the standard second opinion — the two fail
-    differently, so their agreement (r = 0.92–0.98 across missions) is the single best
+    differently, so their agreement (r = 0.88–0.98 across missions) is the single best
     end-to-end health check; a collapse in that agreement is how the false
     bottom-track contamination was caught. Both stand on the same DAC reference, so
     absolute accuracy remains a navigation question for either. The full argument and
@@ -325,9 +325,9 @@ shear (see the validation report for the full analysis).
 # 1. dive vs climb consistency: solve half-yos independently, compare common bins.
 #    M38: r = 0.98, median |Δ| = 2 cm/s. Values ≫ 5 cm/s indicate attitude/geometry issues.
 # 2. DAC closure: depth-mean of each profile vs its DAC
-#    (median 1–2 mm/s on all three validated missions; ≫ 1 cm/s ⇒ referencing errors).
+#    (median 1–2 mm/s on all four validated missions; ≫ 1 cm/s ⇒ referencing errors).
 # 3. Shear-vs-inverse agreement on common (yo, z) bins
-#    (r = 0.92–0.98, rms 3–7 cm/s across missions; a collapse here flags contamination
+#    (r = 0.88–0.98, rms 3–7 cm/s across missions; a collapse here flags contamination
 #    anywhere in the chain — this check exposed the false bottom-track defect).
 # 4. Surface drift: mean of the shallowest bins vs surface_drift after each yo
 #    (M38: median |Δ| = 4 cm/s).

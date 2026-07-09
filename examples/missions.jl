@@ -24,6 +24,10 @@ const MISSIONS = Dict(
               dir=joinpath(GDATA, "sea064-20221102-norse-lofoten-complete"),
               binary="ad2cp/102381_sea064_M38/sea064_M38.ad2cp", prefix="38",
               netcdf="ad2cp/102381_sea064_M38/sea064_M38.ad2cp.00000.nc"),
+    "m48" => (label="M48",
+              dir=joinpath(GDATA, "sea064-20231112-norse-janmayen-complete"),
+              binary="ad2cp/sea064_M48.ad2cp", prefix="48",
+              netcdf="ad2cp/sea064_M48.ad2cp.00000.nc"),
     "m59" => (label="M59",
               dir=joinpath(GDATA, "sea064-20240720-nesma-passengers-complete"),
               binary="ad2cp/sea064_M59.ad2cp", prefix="59",
@@ -31,6 +35,6 @@ const MISSIONS = Dict(
 )
 
 # Order in which missions run when no CLI argument selects a subset.
-const MISSION_ORDER = ["m37", "m38", "m59"]
+const MISSION_ORDER = ["m37", "m38", "m48", "m59"]
 
 selected_missions() = isempty(ARGS) ? MISSION_ORDER : lowercase.(ARGS)

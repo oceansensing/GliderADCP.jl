@@ -1,7 +1,8 @@
 # Data QA/QC guide
 
 Every finding below was established on real missions (sea064 M37 Jan Mayen 2022,
-M38 Lofoten 2022–23, M59 NESMA subtropical NW Atlantic 2024) with the evidence
+M38 Lofoten 2022–23, M48 Jan Mayen 2023, M59 NESMA subtropical NW Atlantic 2024)
+with the evidence
 trail in `docs/research/m38_validation.md`. It is organized as *what we found* →
 *what to check on your mission*. The one-line summary: **most glider-ADCP data
 problems are silent** — false bottom locks, range-dependent bias, sentinel fill
@@ -12,7 +13,7 @@ by inspection of the velocities themselves.
 
 The default screens (correlation ≥ 50 %, amplitude window, SNR floor, ambiguity,
 surface mask, first cell, error flags — see the tutorial for the full table)
-reject **50–58 % of beam samples** on the three validated missions. That number
+reject **50–58 % of beam samples** on the four validated missions. That number
 is normal, dominated by the SNR floor beyond the useful range plus the surface
 mask, and it is not hiding signal: loosening the surface mask and keeping the
 first cell was tested on M38 and does not change the near-surface answer.
@@ -51,6 +52,9 @@ deepest nearby record). Outcomes across missions — both failure modes exercise
 - **M37** (ridge slopes): 16 all-beam locks pass — genuine: glider at 384–782 dbar
   with the seafloor 6–27 m below (implied water depth 390–809 m, consistent with
   local bathymetry).
+- **M48** (bank crossings): 148 screened fixes (18 all-beam) pass — genuine:
+  implied water depth 162–589 m, independently corroborated by the bathymetry
+  arches visible in the mission's own velocity sections.
 - **M59** (4–5 km water): all rejected — correct.
 
 **Check:** `nrow(bt_velocity(adcp))` before trusting BT, and for surviving locks
@@ -63,8 +67,8 @@ perfectly (they are water-referenced on both sides).
 
 All missions carry a range-dependent along-track bias in the beam samples, but
 its magnitude is **configuration/mission-dependent, not an instrument
-constant**: −4.3×10⁻⁴ s⁻¹ on both 2022 missions vs −3.1×10⁻⁵ s⁻¹ (an order of
-magnitude smaller) on the same instrument in 2024. Left uncorrected it tilts the
+constant**: −4.3×10⁻⁴ s⁻¹ on both 2022 missions, −2.4×10⁻⁴ in 2023, and
+−3.1×10⁻⁵ (an order of magnitude smaller) on the same instrument in 2024. Left uncorrected it tilts the
 shear-method profiles end to end; the inverse partially averages it away.
 `calibrate_shear_bias!` measures it with a pairwise-difference estimator
 (per-offset means under-correct when depth coverage is partial) and removes it
@@ -118,7 +122,7 @@ Real missions are messy, and the stack's contract is *degrade loudly*:
 
 The telemetry stream quantizes velocities at 0.01 m/s and lacks accelerometer
 and BT records (pass `look=` explicitly). Run through the identical pipeline on
-three missions, the **inverse product is the delayed product to 3.7–5.1 mm/s
+four missions, the **inverse product is the delayed product to 3.2–5.1 mm/s
 rms with zero bias**, independent of signal amplitude (the agreement holds
 through a >1 m/s Gulf Stream jet on M59). The **shear method pays 2–3 cm/s**,
 growing with depth — integration accumulates the quantization noise the inverse
@@ -131,8 +135,8 @@ stream held 15 ensembles the instrument card did not retain.
 | check | validated values | what a failure means |
 |---|---|---|
 | dive vs climb consistency | r = 0.98, med \|Δ\| = 2 cm/s (M38) | transform/sign/geometry errors |
-| DAC closure (per yo) | median 1–2 mm/s (all three missions) | referencing errors |
-| shear vs inverse agreement | r = 0.92–0.98, rms 3–7 cm/s | contamination anywhere in the chain — this is the check that exposed the false-BT defect |
+| DAC closure (per yo) | median 1–2 mm/s (all four missions) | referencing errors |
+| shear vs inverse agreement | r = 0.88–0.98, rms 3–7 cm/s | contamination anywhere in the chain — this is the check that exposed the false-BT defect |
 | surface drift vs shallowest bins | med \|Δ\| = 4 cm/s (M38) | near-surface problems |
 | BT plausibility (if any locks survive) | implied depth vs bathymetry | false locks |
 

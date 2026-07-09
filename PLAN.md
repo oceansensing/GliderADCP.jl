@@ -362,8 +362,10 @@ All six §8a tasks closed, then:
    (binary↔netCDF parity max |Δvel| = 0 on a third mission; Gulf Stream jet crossing;
    shear-bias slope an order of magnitude below the 2022 missions ⇒ config-dependent,
    measure per mission). Real-time vs delayed generalized over the same registry
-   (`examples/realtime_vs_delayed.jl`): inverse = delayed to 3.7–5.1 mm/s, zero bias,
-   on all three missions, amplitude-independent.
+   (`examples/realtime_vs_delayed.jl`): inverse = delayed to 3.2–5.1 mm/s, zero bias,
+   on all four missions (M48 Jan Mayen 2023 added 2026-07-09 with one registry
+   entry — genuine BT again, third bit-exact netCDF parity, 2023 bias slope
+   −2.4×10⁻⁴ between the 2022/2024 values), amplitude-independent.
 3. **Method verdict recorded** (validation doc §Method verdict; tutorial "Which
    method?" box): the inverse is the production method — mechanistic case
    (localization vs integration), with stated limits (shared DAC reference; independent

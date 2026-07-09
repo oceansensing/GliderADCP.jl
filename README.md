@@ -27,6 +27,13 @@ record: [PLAN.md](PLAN.md).
 
 ## The pipeline
 
+![GliderADCP.jl processing pipeline](docs/pipeline.svg)
+
+*(Three AD2CP input routes and the SeaExplorer nav/CTD logs feed one common
+per-ping trunk; navigation supplies the absolute references. The inverse and shear
+methods produce U/V from identical inputs — their agreement is the health check —
+and `solve_w` adds vertical velocity, all written out as gridded sections.)*
+
 Independent layers, each with a small, testable surface. Every function below is exported.
 
 **I/O — three AD2CP routes into one structure, plus navigation**

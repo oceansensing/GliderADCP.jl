@@ -42,11 +42,12 @@ Independent layers, each with a small, testable surface. Every function below is
   with no Windows/MIDAS step.
 - **`load_ad2cp(path)`** — MIDAS netCDF (single file, directory, or vector), including
   the `AverageBT` bottom-track group.
-- **`load_pnor(dir)`** — the `$PNOR` ASCII stream in the payload logs (every ensemble,
-  0.01 m/s quantized; payload-logged, recovered with the glider) — bounds onboard products.
-- **`load_pld_adcp(dirs)`** — the **telemetered** AD2CP pings inside `pld1.sub` (one
-  subsampled ensemble per ~30 s, 6 cells, beam coordinates) — the data shore actually
-  has mid-mission, for true real-time products.
+- **`load_pnor(dir)`** — **realtime-onboard**: the `$PNOR` ASCII stream in the payload
+  logs (every ensemble, 0.01 m/s quantized; payload-logged — in real time usable only
+  by an onboard consumer such as a backseat driver).
+- **`load_pld_adcp(dirs)`** — **realtime-telemetered**: the AD2CP pings inside the
+  Iridium-transmitted `pld1.sub` (one subsampled ensemble per ~30 s, 6 cells, beam
+  coordinates) — the route shore-side realtime products are built on.
 - **`load_seaexplorer_nav` / `load_seaexplorer_pld`** — SeaExplorer nav (`gli`) and
   payload (`pld1`, `legato`, …) readers via SeaExplorerIO.jl: gzipped, per-segment,
   mission-scale, with glider-computer + GLIMPSE-server multi-route merge and dedup.
@@ -147,7 +148,7 @@ acceptance tests that run on real missions when the data is present.
    2022/2023), M38 (Lofoten), M59 (subtropical NW Atlantic): DAC closure 1–2 mm/s,
    dive-vs-climb med |Δ| ≈ 2 cm/s, shear-vs-inverse agreement r = 0.90–0.98 at
    3–6 cm/s rms.
-5. **Real-time vs delayed, both routes** — the `$PNOR` stream (onboard bound): inverse
+5. **Realtime vs delayed, both realtime tiers** — realtime-onboard (`$PNOR`): inverse
    = delayed to 3.2–5.1 mm/s rms, zero bias, four missions, amplitude-independent; the
    shear method pays 2–3 cm/s to quantization. The **telemetered `pld1.sub` route**
    (what shore actually receives, 1 ensemble/~30 s × 6 cells): matches the delayed
@@ -208,7 +209,7 @@ docs/src/tutorial.md   step-by-step science + pipeline walkthrough
 docs/src/qaqc.md       consolidated data QA/QC findings and checks
 docs/research/         validation report, method verdict, literature, format analyses
 examples/currents.jl              whole-mission workflow (M37/M38/M59, one script)
-examples/realtime_vs_delayed.jl   $PNOR stream vs delayed-mode comparison
+examples/realtime_onboard.jl   $PNOR stream vs delayed-mode comparison
 examples/m38_divand_sections.jl   DIVAnd-mapped continuous sections
 examples/missions.jl              shared mission registry
 ```

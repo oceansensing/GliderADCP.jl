@@ -71,12 +71,14 @@ adcp = load_ad2cp("sea064_M38.ad2cp")
 # 2. MIDAS netCDF export (also multi-file: pass a directory or vector)
 adcp = load_ad2cp("sea064_M38.ad2cp.00000.nc")
 
-# 3. the $PNOR ASCII stream (payload-logged; recovered with the glider)
+# 3. realtime-onboard: the $PNOR ASCII stream (payload-logged; in real time
+#    usable only by an onboard consumer such as a backseat driver)
 adcp_rt = load_pnor("delayed/pld1/logs")
 
-# 4. the telemetered AD2CP subset inside pld1.sub — what Iridium actually
-#    delivers mid-mission (one subsampled ensemble / ~30 s, cells 1–6, no
-#    amp/corr/BT; cellsize+blanking come from the deployment configuration)
+# 4. realtime-telemetered: the AD2CP subset inside pld1.sub — what Iridium
+#    actually delivers mid-mission (one subsampled ensemble / ~30 s, cells 1–6,
+#    no amp/corr/BT; cellsize+blanking come from the deployment configuration).
+#    Build shore-side realtime products from THIS route.
 tele = load_pld_adcp(["delayed/pld1/logs", "glimpse"]; stream="38.pld1.sub",
                      cellsize=2.0, blanking=0.7)
 ```
@@ -90,9 +92,10 @@ inverse solution matches the binary-derived one to r ≥ 0.9984 and 3.2–5.1 mm
 zero bias, independent of signal amplitude (the agreement holds through a >1 m/s Gulf
 Stream jet on M59) — the 0.01 m/s per-sample quantization averages down in the bin
 means, so onboard processing from this stream is quantitatively viable
-(`examples/realtime_vs_delayed.jl`). Note the stream is payload-logged, not
-transmitted: the true **shore-side** real-time data is the AD2CP subset inside the
-telemetered `pld1.sub` (`load_pld_adcp` — one ensemble per ~30 s, 6 cells). Run
+(`examples/realtime_onboard.jl`) — but only for an onboard consumer (backseat
+driver), since the stream is payload-logged, not transmitted. **Shore-side realtime
+calculations should be built on the realtime-telemetered route**: the AD2CP subset
+inside the transmitted `pld1.sub` (`load_pld_adcp` — one ensemble per ~30 s, 6 cells). Run
 through the same pipeline it matches the delayed inverse at 28–45 mm/s rms with
 |bias| ≤ 0.8 mm/s on all four validated missions — at the method-uncertainty floor —
 and ~3–4× closer to the delayed truth than ALSEAMAR's proprietary GLIMPSE product from

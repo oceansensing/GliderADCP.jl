@@ -136,27 +136,31 @@ Real missions are messy, and the stack's contract is *degrade loudly*:
   `LEGATO_SOUND_VELOCITY` etc.) — absent columns degrade to missing **with a
   warning**, never a KeyError.
 
-## 8. Real-time data quality — two routes, only one reaches shore
+## 8. Real-time data quality — the three-tier route taxonomy
 
-A SeaExplorer carries **two** real-time AD2CP data routes; do not conflate them:
+A glider AD2CP dataset exists in **three tiers**; name them precisely:
 
-| | `$PNOR` stream (`load_pnor`) | telemetered `pld1.sub` subset (`load_pld_adcp`) |
-|---|---|---|
-| reaches shore mid-mission | **no** — payload-logged, recovered with the glider | **yes** — inside the Iridium-transmitted `pld1.sub` |
-| ensembles | every one (~2 s) | one every ~30 s (single subsampled ensemble, not an average) |
-| cells | all (15) | first 6 |
-| amp / corr / BT | yes / yes / no | none |
-| quantization | 0.01 m/s | 0.01 m/s |
-| inverse vs delayed | 3.2–5.1 mm/s rms (four missions) | 28–45 mm/s rms, \|bias\| ≤ 0.8 mm/s (four missions) |
+| | delayed-mode (`read_ad2cp`) | realtime-onboard (`load_pnor`) | realtime-telemetered (`load_pld_adcp`) |
+|---|---|---|---|
+| where/when available | post-recovery | on the payload computer during flight | **shore, mid-mission** (Iridium `pld1.sub`) |
+| ensembles | every one | every one (~2 s) | one every ~30 s (single subsampled ensemble, not an average) |
+| cells | all (15) | all (15) | first 6 |
+| amp / corr / BT | yes / yes / yes | yes / yes / no | none |
+| quantization | none | 0.01 m/s | 0.01 m/s |
+| inverse vs delayed | — (reference) | 3.2–5.1 mm/s rms (four missions) | 28–45 mm/s rms, \|bias\| ≤ 0.8 mm/s (four missions) |
 
-Both routes lack the accelerometer — pass `look=` explicitly. The `$PNOR`
-result (an *onboard* product bound) holds on four missions independent of
-signal amplitude; the shear method pays 2–3 cm/s to quantization on it. The
-telemetered route — the true *shore-side* product — still solves the identical
-yo set and lands at the method-uncertainty floor (~3.2 cm/s); its one casualty
-is w (r ≈ 0.71 — the 30-s subsampling aliases the small, fast vertical signal).
-For reference, ALSEAMAR's proprietary GLIMPSE product from the same telemetered
-input sits ~3–4× further from the delayed truth on every mission (rms
+**Shore-side realtime calculations should be built on the telemetered route**
+— it is the only realtime tier that exists ashore. The `$PNOR` stream is
+useful in real time only to an onboard consumer (e.g. a backseat driver); its
+3–5 mm/s result bounds what such a consumer could compute. Both realtime
+routes lack the accelerometer — pass `look=` explicitly. The telemetered
+product solves the (nearly) identical yo set and lands at the
+method-uncertainty floor (~3.2 cm/s); its one casualty is w (r ≈ 0.66–0.84 —
+the 30-s subsampling aliases the small, fast vertical signal; get realtime w
+onboard from `$PNOR`, or wait for delayed data).
+For reference, ALSEAMAR's GLIMPSE product — computed **server-side** from the same raw
+telemetered data and written back into the server CSV exports as the
+`AD2CP_*_c` columns — sits ~3–4× further from the delayed truth on every mission (rms
 101–127 mm/s, r = 0.39–0.90, mission-dependent biases up to 38 mm/s, striping
 and spurious deep values). `AD2CP_TIME` is the instrument clock (MMDDYY) — immune
 to the payload-clock bench rows. Check stream coverage against the binary with

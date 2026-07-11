@@ -2,14 +2,21 @@
 # three-way comparison: our telemetered inverse vs the delayed-mode product vs
 # ALSEAMAR's own GLIMPSE real-time current estimate (AD2CP_*_c columns).
 #
-# Two distinct "real-time" data routes exist and must not be confused:
-#   1. the $PNOR ASCII stream (ad2cp.raw) — logged on the payload computer, every
-#      ensemble, all cells + amp/corr, but NOT transmitted; recovered with the
-#      glider (see examples/realtime_vs_delayed.jl);
-#   2. the AD2CP subset inside pld1.sub — one subsampled ensemble every ~30 s,
-#      cells 1–6, beam velocities at 0.01 m/s, attitude/pressure, no amp/corr/BT.
-#      THIS is what Iridium actually delivers mid-mission, and what this script
-#      turns into a current product with the standard pipeline.
+# Data-route taxonomy — three tiers, two of them "realtime":
+#   delayed-mode        .ad2cp binary, post-recovery: the reference product.
+#   realtime-onboard    $PNOR ASCII stream (ad2cp.raw) — every ensemble, all cells
+#                       + amp/corr, but payload-logged only: in real time it is
+#                       useful only to an onboard consumer (backseat driver);
+#                       see examples/realtime_onboard.jl.
+#   realtime-telemetered  the AD2CP subset inside pld1.sub — one subsampled
+#                       ensemble every ~30 s, cells 1–6, beam velocities at
+#                       0.01 m/s, attitude/pressure, no amp/corr/BT. THIS is what
+#                       Iridium delivers mid-mission: shore-side realtime
+#                       calculations should be built from this route (this script).
+#
+# ALSEAMAR's GLIMPSE server computes its own product from the same raw telemetered
+# data *server-side* and writes the result back into its CSV exports as the
+# AD2CP_*_c columns — so the comparison below is on identical input.
 #
 # Configuration (cell size, blanking, serial, configured salinity) is taken from
 # the mission's binary config here for exactness; in true real-time use it comes

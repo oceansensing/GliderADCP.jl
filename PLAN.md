@@ -332,7 +332,7 @@ acceptance criteria pass.
    to 1000 m; shear method rms 2.3–2.5 cm/s (integration accumulates quantization
    noise); w rms 2.6 mm/s. A real-time product is essentially the delayed product for
    the inverse method. Details in docs/research/m38_validation.md §Task 5; script
-   `examples/realtime_vs_delayed.jl`; gated 3-day acceptance test in the suite.
+   `examples/realtime_onboard.jl`; gated 3-day acceptance test in the suite.
 6. **Robust missing-data handling — DONE (2026-07-08).** All loaders skip
    corrupt/unreadable inputs with specific warnings (SeaExplorer per-segment, netCDF
    per-file, `$PNOR` per-file; binary reader already resynced and now also reports
@@ -362,7 +362,7 @@ All six §8a tasks closed, then:
    (binary↔netCDF parity max |Δvel| = 0 on a third mission; Gulf Stream jet crossing;
    shear-bias slope an order of magnitude below the 2022 missions ⇒ config-dependent,
    measure per mission). Real-time vs delayed generalized over the same registry
-   (`examples/realtime_vs_delayed.jl`): inverse = delayed to 3.2–5.1 mm/s, zero bias,
+   (`examples/realtime_onboard.jl`): inverse = delayed to 3.2–5.1 mm/s, zero bias,
    on all four missions (M48 Jan Mayen 2023 added 2026-07-09 with one registry
    entry — genuine BT again, third bit-exact netCDF parity, 2023 bias slope
    −2.4×10⁻⁴ between the 2022/2024 values), amplitude-independent.

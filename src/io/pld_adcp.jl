@@ -1,4 +1,4 @@
-# Layer 1 — telemetered AD2CP pings from the SeaExplorer payload record (pld1.sub).
+# Layer 1 — the REALTIME-TELEMETERED route: AD2CP pings inside pld1.sub.
 #
 # The AD2CP driver broadcasts one instrument ensemble every ~30 s into the payload
 # record; the subsampled `pld1.sub` files carrying it are what the glider actually
@@ -13,13 +13,15 @@
 # Verified against the M38 binary: each row is a single subsampled ensemble
 # (values = instrument cells 1..K rounded to 0.01 m/s; NOT a 30-s average), in beam
 # coordinates, with attitude matching the same ensemble. No amplitude, correlation,
-# or bottom track is transmitted — the corresponding QC screens become no-ops, and
-# `first_cells` (on by default) removes the ringing-contaminated cell 1.
+# or bottom track is transmitted — the corresponding QC screens become no-ops
+# (cell 1 is kept by the large-blanking default; see the first-cell verdict).
 #
-# This is the true shore-side real-time route (the `$PNOR` stream in `ad2cp.raw`
-# is payload-logged only and comes back with the glider). ALSEAMAR's own GLIMPSE
-# processing of these rows appears as `AD2CP_*_c` columns in server exports; this
-# reader ingests the raw beam data so the product can be computed openly.
+# This is the route shore-side realtime calculations should be built on (the
+# `$PNOR` stream in `ad2cp.raw` is payload-logged only — realtime-onboard — and
+# comes back with the glider). ALSEAMAR's GLIMPSE server runs its own processing
+# on this same raw telemetered data server-side and writes the result into its
+# CSV exports as `AD2CP_*_c` columns; this reader ingests the raw beam data so
+# the product can be computed openly.
 
 const _PLDADCP_TIME_RE = r"^\d{6} \d{2}:\d{2}:\d{2}$"
 
@@ -93,12 +95,13 @@ end
     load_pld_adcp(src; stream="pld1.sub", cellsize, blanking, serial=0,
                   soundspeed=NaN, mintime=DateTime(2000)) -> AD2CPData
 
-Read the **telemetered** AD2CP pings from SeaExplorer payload records — the
+Read the **realtime-telemetered** AD2CP pings from SeaExplorer payload records — the
 `AD2CP_V<beam>_CN<cell>` beam velocities plus attitude/pressure that the glider
 transmits over Iridium inside `pld1.sub` (one subsampled instrument ensemble every
 ~30 s; verified single-ensemble, beam coordinates, 0.01 m/s quantization). This is
-the data available *shore-side during the mission*, unlike the `\$PNOR` stream
-(`load_pnor`), which is payload-logged only and recovered with the glider.
+the data available *shore-side during the mission* — the route realtime products
+should be built on — unlike the `\$PNOR` stream (`load_pnor`, realtime-onboard),
+which is payload-logged and useful in real time only to an onboard consumer.
 
 `src` is a directory, a vector of directories (glider-computer segment logs +
 GLIMPSE-server exports; duplicate instrument timestamps are deduplicated, earlier
@@ -111,8 +114,8 @@ records the sound speed the instrument used onboard so that
 [`soundspeed_correction`](@ref) can rescale; it is likewise not transmitted
 (reconstruct it from the configured salinity and the payload CTD temperature, or
 leave `NaN` to skip the correction). No amplitude/correlation/bottom-track data
-exist on this route; the corresponding QC screens pass everything, `first_cells`
-still removes the ringing cell, and `process_pings` needs an explicit `look=`.
+exist on this route; the corresponding QC screens pass everything (cell 1 is kept
+under the large-blanking default), and `process_pings` needs an explicit `look=`.
 
 ```julia
 tele = load_pld_adcp(["delayed/pld1/logs", "glimpse"]; stream="38.pld1.sub",

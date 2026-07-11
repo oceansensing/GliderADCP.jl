@@ -1,7 +1,7 @@
 # Shared mission registry for the GliderADCP.jl examples.
 #
 # Each entry locates a sea064 deployment and the few mission-specific facts the
-# workflow needs; the processing scripts (`currents.jl`, `realtime_vs_delayed.jl`)
+# workflow needs; the processing scripts (`currents.jl`, `realtime_onboard.jl`)
 # are otherwise mission-agnostic and treat every mission identically. Latitude is
 # derived from the navigation at run time, not stored here.
 #

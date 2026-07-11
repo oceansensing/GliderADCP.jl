@@ -1,4 +1,4 @@
-# Layer 1 — Nortek $PNOR ASCII stream parser (SeaExplorer real-time payload feed).
+# Layer 1 — Nortek $PNOR ASCII stream parser (the REALTIME-ONBOARD route).
 #
 # The AD2CP streams NMEA-style sentences to the payload computer in real time
 # (logged as `sea<glider>.<mission>.ad2cp.raw.<N>[.gz]`):
@@ -10,8 +10,10 @@
 #          amp1..amp4,corr1..corr4*cs                                 (per cell)
 #
 # Amplitudes arrive in counts (≈0.5 dB/count — converted to dB here for consistency
-# with the MIDAS netCDF variables); velocities in m/s at 0.01 resolution. This enables
-# real-time/piloting processing and cross-checks of the delayed-mode pipeline.
+# with the MIDAS netCDF variables); velocities in m/s at 0.01 resolution. The stream
+# is payload-logged, not transmitted: in real time it is useful only to an onboard
+# consumer (e.g. a backseat driver); shore-side realtime products come from the
+# telemetered pld1.sub subset instead (`load_pld_adcp`).
 
 function _nmea_checksum_ok(line::AbstractString)
     startswith(line, '$') || return false
@@ -46,7 +48,8 @@ end
     load_pnor(src; stream="ad2cp.raw", validate_checksum=true,
               mintime=DateTime(2000)) -> AD2CPData
 
-Parse the AD2CP real-time NMEA stream into an [`AD2CPData`](@ref) (same structure as
+Parse the AD2CP `\$PNOR` NMEA stream — the **realtime-onboard** route (payload-logged,
+recovered with the glider) — into an [`AD2CPData`](@ref) (same structure as
 the MIDAS netCDF path, minus bottom track and accelerometer/magnetometer — pass
 `look=:down`/`:up` explicitly to downstream functions). `src` is a directory (all
 segments of `stream`) or a vector of files (gzip transparent).

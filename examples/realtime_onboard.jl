@@ -1,11 +1,19 @@
-# Real-time ($PNOR telemetry stream) vs delayed-mode (.ad2cp binary) products,
-# run symmetrically over missions — the Task-5 methodology
+# Realtime-onboard ($PNOR stream) vs delayed-mode (.ad2cp binary) products, run
+# symmetrically over missions — the Task-5 methodology
 # (docs/research/m38_validation.md §Task 5) applied to any mission: both AD2CP
 # routes run the IDENTICAL pipeline (same nav, CTD sound speed, QC, declination,
 # shear-bias calibration, DAC), so the data source is the only difference.
 #
-#   JULIA_LOAD_PATH="@:@ocean:@stdlib" julia +1.13 --project=. examples/realtime_vs_delayed.jl
-#   JULIA_LOAD_PATH="@:@ocean:@stdlib" julia +1.13 --project=. examples/realtime_vs_delayed.jl m37 m59
+# Data-route taxonomy: delayed-mode (.ad2cp binary, post-recovery) ·
+# realtime-onboard ($PNOR stream — payload-logged; useful in real time only to
+# something like a backseat driver consuming it on the vehicle) ·
+# realtime-telemetered (AD2CP subset in pld1.sub — what shore receives; see
+# examples/realtime_telemetered.jl). This script bounds what an ONBOARD consumer
+# of $PNOR could compute; shore-side realtime products should be built from the
+# telemetered pld data instead.
+#
+#   JULIA_LOAD_PATH="@:@ocean:@stdlib" julia +1.13 --project=. examples/realtime_onboard.jl
+#   JULIA_LOAD_PATH="@:@ocean:@stdlib" julia +1.13 --project=. examples/realtime_onboard.jl m37 m59
 
 using GliderADCP
 using DataFrames, Dates, Statistics, NaNStatistics
@@ -89,7 +97,7 @@ for key in selected_missions()
                           (sec_r, :U, "U (east) — real-time (\$PNOR stream)"),
                           (sec_r, :V, "V (north) — real-time")];
         colorrange=(-crUV, crUV))
-    save(joinpath(OUT, "$(m.label)_realtime_vs_delayed_sections.png"), figs)
+    save(joinpath(OUT, "$(m.label)_realtime_onboard_sections.png"), figs)
 
     # (b) difference sections (real-time − delayed), inverse + shear, amplified scale
     dg_i, dg_s = dgrid(stats["inv u"]), dgrid(stats["shr u"])
@@ -99,7 +107,7 @@ for key in selected_missions()
                           (dg_s, :U, "ΔU — shear method"),
                           (dg_s, :V, "ΔV — shear method")];
         colorrange=(-crD, crD))
-    save(joinpath(OUT, "$(m.label)_realtime_vs_delayed_diff_sections.png"), figd)
+    save(joinpath(OUT, "$(m.label)_realtime_onboard_diff_sections.png"), figd)
 
     # (c) scatter + rms-by-depth summary
     fig = Figure(size=(1000, 420))
@@ -123,6 +131,6 @@ for key in selected_missions()
         lines!(ax2, rmsz, zc; color, label=key2)
     end
     axislegend(ax2; position=:rb)
-    save(joinpath(OUT, "$(m.label)_realtime_vs_delayed.png"), fig; px_per_unit=2)
-    @info "  wrote $(joinpath(OUT, "$(m.label)_realtime_vs_delayed.png"))"
+    save(joinpath(OUT, "$(m.label)_realtime_onboard.png"), fig; px_per_unit=2)
+    @info "  wrote $(joinpath(OUT, "$(m.label)_realtime_onboard.png"))"
 end

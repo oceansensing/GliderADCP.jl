@@ -296,7 +296,7 @@ Full-pipeline comparison of the two AD2CP data routes, everything else held iden
 calibration, DAC): the **real-time** `$PNOR` ASCII telemetry stream (`load_pnor`;
 0.01 m/s velocity quantization, 0.1° attitude, no accelerometer, no BT records) vs the
 **delayed-mode** full-resolution `.ad2cp` binary. Script:
-`examples/realtime_vs_delayed.jl m38`; gated acceptance test in the suite.
+`examples/realtime_onboard.jl m38`; gated acceptance test in the suite.
 
 Coverage first (the Task-6 machinery reports it directly): the stream carries
 123,950 of 124,752 ensembles (99.4%). The payload stopped writing the stream on
@@ -331,7 +331,7 @@ shear method last in real-time settings: it is the one product measurably degrad
 
 **Cross-mission confirmation (2026-07-08).** The same comparison run on M37
 (Jan Mayen, Oct 2022) and M59 (NESMA subtropical NW Atlantic, Jul–Aug 2024;
-`examples/realtime_vs_delayed.jl`):
+`examples/realtime_onboard.jl`):
 
     M37: inverse r = 0.9987/0.9984 (u/v), rms 3.7/4.4 mm/s;  shear rms 21–22 mm/s;  w rms 0.5 mm/s
     M59: inverse r = 0.9997/0.9996 (u/v), rms 5.1/5.0 mm/s;  shear rms 28–29 mm/s;  w rms 0.3 mm/s
@@ -545,3 +545,15 @@ product is 101–127 mm/s rms everywhere, with mission-dependent biases up to
 38 mm/s. w from the telemetered route: r = 0.66–0.84, rms 5.5–9.5 mm/s — the
 subsampling caveat holds on all missions. M37's stream supports 104 of the 107
 delayed yos (three short segments fall under `min_pings` at 30-s cadence).
+
+**Route taxonomy adopted (2026-07-11).** Standing names for the three data tiers:
+**delayed-mode** (`.ad2cp` binary, post-recovery — the reference),
+**realtime-onboard** (`$PNOR` stream — payload-logged; in real time useful only to
+an onboard consumer such as a backseat driver; its 3–5 mm/s result bounds that use
+case), and **realtime-telemetered** (the `pld1.sub` AD2CP subset — the only tier
+that exists ashore mid-mission; **shore-side realtime calculations are built on
+this route**). Confirmed: ALSEAMAR's GLIMPSE processing runs *server-side* on the
+same raw telemetered data, writing `AD2CP_*_c` into its CSV exports — so the
+open-vs-proprietary comparison above is on identical input by construction.
+`examples/realtime_vs_delayed.jl` was renamed `examples/realtime_onboard.jl`
+accordingly.

@@ -155,7 +155,9 @@ acceptance tests that run on real missions when the data is present.
    (what shore actually receives, 1 ensemble/~30 s × 6 cells): matches the delayed
    inverse at 28–45 mm/s rms with |bias| ≤ 0.8 mm/s on all four missions — the
    method-uncertainty floor, and ~3–4× closer to the delayed truth than ALSEAMAR's
-   proprietary product from the same input (101–127 mm/s, biases up to 38 mm/s).
+   proprietary product from the same input (101–127 mm/s, biases up to 38 mm/s). Telemetered
+   w flags coherent events but aliases fine structure (r = 0.66–0.84; per-mission
+   diagnostic in the example).
 6. **Data-QC discovery** — on M38, 99.7% of bottom-track locks proved false (near-field
    water-borne targets); feeding them to the inverse injected a spurious 300-m shear
    layer. `bt_valid` now screens them by default (min range + impossible-bathymetry

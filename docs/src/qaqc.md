@@ -155,9 +155,17 @@ useful in real time only to an onboard consumer (e.g. a backseat driver); its
 3–5 mm/s result bounds what such a consumer could compute. Both realtime
 routes lack the accelerometer — pass `look=` explicitly. The telemetered
 product solves the (nearly) identical yo set and lands at the
-method-uncertainty floor (~3.2 cm/s); its one casualty is w (r ≈ 0.66–0.84 —
-the 30-s subsampling aliases the small, fast vertical signal; get realtime w
-onboard from `$PNOR`, or wait for delayed data).
+method-uncertainty floor (~3.2 cm/s); its one casualty is w (r ≈ 0.66–0.84,
+rms 5.5–9.5 mm/s — the 30-s subsampling aliases the small, fast vertical
+signal). The per-mission diagnostic (`M*_telemetered_w_sections.png`, written
+by `examples/realtime_telemetered.jl`) shows what that number means: **large
+coherent vertical-velocity events survive telemetry recognizably; the fine
+internal-wave banding washes into speckle** — so telemetered w is usable for
+spotting significant events mid-mission, not for wave-scale statistics. For
+the latter, compute w onboard from `$PNOR`, or wait for delayed data.
+
+**Check:** inspect the w diagnostic per mission rather than assuming the
+summary r — event survival is what matters operationally.
 For reference, ALSEAMAR's GLIMPSE product — computed **server-side** from the same raw
 telemetered data and written back into the server CSV exports as the
 `AD2CP_*_c` columns — sits ~3–4× further from the delayed truth on every mission (rms

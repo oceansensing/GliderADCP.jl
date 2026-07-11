@@ -543,7 +543,13 @@ every mission — at or below the shear-vs-inverse method spread — with r trac
 signal variance (lowest in M48's weak-flow regime at unchanged rms). ALSEAMAR's
 product is 101–127 mm/s rms everywhere, with mission-dependent biases up to
 38 mm/s. w from the telemetered route: r = 0.66–0.84, rms 5.5–9.5 mm/s — the
-subsampling caveat holds on all missions. M37's stream supports 104 of the 107
+subsampling caveat holds on all missions, and the per-mission diagnostic
+(`M*_telemetered_w_sections.png`, delayed vs telemetered side by side) shows
+its character: **aliasing degrades texture, not events** — the large coherent
+up/downwelling columns (±0.02 m/s class, e.g. M38's Nov 5–7 events) come
+through recognizably while the fine internal-wave banding washes into speckle.
+Operationally: telemetered w flags significant vertical-velocity events
+mid-mission; wave-scale statistics need the onboard or delayed tiers. M37's stream supports 104 of the 107
 delayed yos (three short segments fall under `min_pings` at 30-s cadence).
 
 **Route taxonomy adopted (2026-07-11).** Standing names for the three data tiers:

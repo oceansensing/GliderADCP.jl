@@ -16,7 +16,7 @@ consumes this package's calibration through a package extension).
 ## Commands
 
 ```bash
-# tests (355; gated acceptance tests auto-skip when local mission data is absent)
+# tests (359; gated acceptance tests auto-skip when local mission data is absent)
 ~/.juliaup/bin/julia +1.13 --project=. -e 'using Pkg; Pkg.test()'
 
 # docs (Documenter; SeaExplorerIO is dev'd into docs/Manifest)
@@ -56,6 +56,11 @@ placeholder files (read as zero bytes; loaders warn `no rows parsed`).
   against bathymetry.
 - **Shear-bias calibration is per-mission** (`calibrate_shear_bias!`): the slope is
   configuration-dependent (−4.7×10⁻⁴ … −5×10⁻⁵ s⁻¹ across 2022–2024), never hard-code.
+- **Telemetered w: events yes, statistics no.** The 30-s subsampling aliases texture
+  (r = 0.66–0.84 vs delayed) but large coherent vertical-velocity events survive —
+  the per-mission diagnostic `M*_telemetered_w_sections.png` (from
+  `examples/realtime_telemetered.jl`) is the check; wave-scale w work needs the
+  `$PNOR` (onboard) or delayed tiers.
 - **NORSE** (not NorSE) in all mission references.
 
 ## Conventions

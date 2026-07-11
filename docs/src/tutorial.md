@@ -310,7 +310,7 @@ per-bin noise random-walks into per-yo excursions of ±0.1–0.3 m/s, whereas th
 localizes each sample to its depth bin (per-bin consistency ≈2 cm/s on M38). This is
 not an implementation artifact — it is the structural difference between the methods,
 and the reason the lADCP community moved to inversions. The cleanest demonstration is
-the real-time comparison: given identically quantized input samples, the inverse's
+the realtime-onboard comparison: given identically quantized input samples, the inverse's
 error stays a flat 4–5 mm/s to 1000 m while the shear method's grows with depth to
 2–3 cm/s, on all four validated missions. Use the shear solution as an independent
 cross-check, reading its per-yo wiggles with the drift envelope in mind.

@@ -3,9 +3,11 @@
 **A pure-Julia toolbox for processing Nortek AD2CP data from SeaExplorer and Slocum gliders
 into absolute ocean velocity profiles.**
 
-Status (2026-07-07): **all phases complete** (0–7; 273 tests) — see the roadmap table in
-§8 for per-phase results. The GitHub repo and local clone are both renamed to
-`GliderADCP.jl`. Remaining: v0.1.0 tag + General-registry registration, whenever desired.
+Status (2026-07-11): **all phases complete** (0–7) plus the §8a follow-up queue and
+§8b post-queue work — 355 tests, four validated missions (M37/M38/M48/M59), the
+three-tier data-route taxonomy (delayed-mode / realtime-onboard / realtime-telemetered),
+and the first-cell verdict (kept by default for ≥ 0.5 m blanking). Remaining: v0.1.0
+tag + General-registry registration (SeaExplorerIO.jl first), whenever desired.
 This document is kept as the design record; user-facing documentation lives in `docs/`
 — start with [docs/src/tutorial.md](docs/src/tutorial.md) for a full scientific
 walkthrough of the pipeline.

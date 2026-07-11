@@ -120,7 +120,7 @@ export_sections("M38_inverse.nc", sec)
 shared registry runs the full chain, all diagnostics, and figures:
 
 ```bash
-JULIA_LOAD_PATH="@:@ocean:@stdlib" julia +1.13 --project=. examples/currents.jl        # M37, M38, M59
+JULIA_LOAD_PATH="@:@ocean:@stdlib" julia +1.13 --project=. examples/currents.jl        # all registry missions
 JULIA_LOAD_PATH="@:@ocean:@stdlib" julia +1.13 --project=. examples/currents.jl m38     # one mission
 ```
 
@@ -133,7 +133,7 @@ nav = load_seaexplorer_nav(["delayed/nav/logs", "glimpse"]; stream = "38.gli.sub
 
 ## Validation
 
-Five independent lines, all in the test suite (354 tests) or scripted, with gated
+Six independent lines, all in the test suite (355 tests) or scripted, with gated
 acceptance tests that run on real missions when the data is present.
 
 1. **Reference-implementation parity** — the beam→XYZ transform reproduces `gliderad2cp`
@@ -183,7 +183,8 @@ src/
   io/
     ad2cp_binary.jl native .ad2cp binary reader (bit-fidelity core)
     nortek_netcdf.jl MIDAS netCDF (+ AverageBT) reader
-    nortek_pnor.jl  $PNOR real-time telemetry-stream parser
+    nortek_pnor.jl  $PNOR stream parser (realtime-onboard)
+    pld_adcp.jl     telemetered pld1.sub AD2CP subset (realtime-telemetered)
     seaexplorer.jl  SeaExplorer nav/payload adapters (via SeaExplorerIO.jl)
     slocum.jl       Slocum dbd/ERDDAP table ingestion
   processing/
@@ -208,8 +209,9 @@ ext/GliderADCPMakieExt.jl   plot_sections (activates when Makie is loaded)
 docs/src/tutorial.md   step-by-step science + pipeline walkthrough
 docs/src/qaqc.md       consolidated data QA/QC findings and checks
 docs/research/         validation report, method verdict, literature, format analyses
-examples/currents.jl              whole-mission workflow (M37/M38/M59, one script)
-examples/realtime_onboard.jl   $PNOR stream vs delayed-mode comparison
+examples/currents.jl              whole-mission workflow (all missions, one script)
+examples/realtime_onboard.jl      realtime-onboard ($PNOR) vs delayed-mode comparison
+examples/realtime_telemetered.jl  shore-side realtime product + ALSEAMAR comparison
 examples/m38_divand_sections.jl   DIVAnd-mapped continuous sections
 examples/missions.jl              shared mission registry
 ```

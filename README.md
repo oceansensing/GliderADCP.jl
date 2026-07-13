@@ -1,5 +1,7 @@
 # GliderADCP.jl
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.21345325.svg)](https://doi.org/10.5281/zenodo.21345325)
+
 Pure-Julia processing of glider-mounted ADCP data into absolute ocean velocity
 profiles: from the raw instrument binary to referenced, quality-controlled U/V/W
 sections. Currently supports the Nortek AD2CP, validated end-to-end on four Alseamar

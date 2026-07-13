@@ -131,10 +131,8 @@ function load_pld_adcp(src; stream::AbstractString="pld1.sub",
     if all(isdir, dirs)
         for d in dirs
             append!(files, seaexplorer_files(d, stream))
+            # GLIMPSE exports: whole-mission .all.csv + per-cycle .NNN.csv
             append!(files, SeaExplorerIO.glimpse_files(d, stream))
-            # GLIMPSE per-cycle exports: <glider>.<mission>.<stream>.NNN.csv
-            pat = Regex("\\." * replace(stream, "." => "\\.") * "\\.(\\d+)\\.csv\$", "i")
-            append!(files, sort([joinpath(d, f) for f in readdir(d) if occursin(pat, f)]))
         end
     else
         files = dirs                              # explicit file list

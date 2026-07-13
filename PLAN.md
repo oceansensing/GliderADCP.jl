@@ -133,7 +133,7 @@ we implement the BT constraint from day one (novel relative to both).
   2026-07-07). Julia ≥ 1.10 (LTS). MIT license (already present).
 - Sibling, not monolith: Slocum I/O delegates to **SlocumIO.jl**; SeaExplorer parsing
   conventions harvested from **jlglider** (eventually jlglider calls this package);
-  package conventions modeled on **ATOMIXjulia.jl**.
+  package conventions modeled on **GliderTurbulence.jl**.
 - Deps (already resolved in Project.toml): NCDatasets, CSV, DataFrames, CodecZlib,
   Interpolations, GibbsSeaWater, NaNStatistics, Krylov + stdlibs. CairoMakie later as a
   package extension. PythonCall only under `test/` (CondaPkg.toml there), gated by
@@ -290,11 +290,11 @@ acceptance criteria pass.
    mission-mean v-shear agrees, mission-mean u-shear exposes the calibration's
    absorption of track-aligned real shear (heading-diversity caveat quantified) — feeds
    Task 3.
-2. **SeaExplorer loader duplication vs ATOMIXjulia.jl — DONE (2026-07-08).**
+2. **SeaExplorer loader duplication vs GliderTurbulence.jl — DONE (2026-07-08).**
    Resolved by extracting **SeaExplorerIO.jl** (`/Users/gong/GitHub/SeaExplorerIO.jl`,
    GitHub `oceansensing/SeaExplorerIO.jl`): a dependency-minimal shared file layer
    (CodecZlib + Dates + OrderedCollections only) merging the best of both loaders —
-   ATOMIXjulia's lean column-selective parser, GliderTable, schema guarantees and
+   GliderTurbulence's lean column-selective parser, GliderTable, schema guarantees and
    mixed-header alignment; GliderADCP's generic stream discovery, missing_segments
    transfer-gap detection, and NMEA conversion extended to payload coordinates. Both
    packages now wrap it with their historical APIs unchanged
@@ -303,7 +303,7 @@ acceptance criteria pass.
    note: `load_seaexplorer_pld` now converts `NAV_LATITUDE`/`NAV_LONGITUDE` from NMEA
    to decimal degrees (previously returned raw NMEA — a gap, now fixed), and payload
    columns are Float64-with-missing rather than CSV-inferred types. Test totals:
-   SeaExplorerIO 63, GliderADCP 328, ATOMIXjulia 867 — all green; the `@ocean` stack
+   SeaExplorerIO 63, GliderADCP 328, GliderTurbulence 867 — all green; the `@ocean` stack
    loads all three together. Future loader fixes and new sensors (DO, fluorometer, …)
    land once, in SeaExplorerIO.
 

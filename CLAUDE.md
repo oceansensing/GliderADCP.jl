@@ -5,7 +5,7 @@ Nortek AD2CP) into absolute ocean velocities. Two solvers (Visbeck inverse + she
 Companion packages: SeaExplorerIO.jl (shared file layer; resolved from GitHub via
 `[sources]` url — for local loader development, `Pkg.develop(path="../SeaExplorerIO.jl")`
 into the environment you're testing, and push SeaExplorerIO before testing here) and
-ATOMIXjulia.jl (microstructure; consumes this package's calibration through a package
+GliderTurbulence.jl (microstructure; consumes this package's calibration through a package
 extension; not yet public).
 
 ## Read before re-investigating anything

@@ -1,6 +1,6 @@
 # Layer 1 — SeaExplorer navigation (.gli) and payload (.pld1/.legato/…) loading.
 #
-# The file parsing itself lives in SeaExplorerIO.jl (shared with ATOMIXjulia.jl,
+# The file parsing itself lives in SeaExplorerIO.jl (shared with GliderTurbulence.jl,
 # so loader fixes and new sensors land once): stream discovery, missing-segment
 # detection, corrupt-file skipping, NMEA and timestamp normalization. This file
 # only adapts its GliderTable into the types the ADCP pipeline uses (GliderNav,

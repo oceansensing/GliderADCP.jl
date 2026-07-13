@@ -112,7 +112,7 @@ pld = load_seaexplorer_pld("delayed/pld1/logs"; stream="pld1.sub")  # CTD for so
 
 The file parsing behind these lives in
 [SeaExplorerIO.jl](https://github.com/oceansensing/SeaExplorerIO.jl) (shared with
-ATOMIXjulia.jl): corrupt segment files are skipped with a warning, missing segment
+GliderTurbulence.jl): corrupt segment files are skipped with a warning, missing segment
 numbers are reported, and coordinate columns arrive in decimal degrees. For large
 payload streams, `SeaExplorerIO.read_pld(dir, ["LEGATO_TEMPERATURE", …])` reads only
 the columns you name. Missions downloaded several ways — glider-computer files plus a

@@ -21,7 +21,7 @@ Implements both published approaches, from first principles, over one common tru
   with composable depth-averaged-current, bottom-track, and smoothness constraints.
 
 No Python, MATLAB, or Windows/MIDAS at runtime. SeaExplorer log parsing is shared with
-the companion microstructure package ATOMIXjulia.jl (not yet public) through
+the companion microstructure package GliderTurbulence.jl (not yet public) through
 [SeaExplorerIO.jl](https://github.com/oceansensing/SeaExplorerIO.jl).
 
 **New users: start with the [tutorial](docs/src/tutorial.md)** (the science and a worked

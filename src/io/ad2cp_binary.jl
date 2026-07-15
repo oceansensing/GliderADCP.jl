@@ -34,17 +34,19 @@ function _ad2cp_checksum(b::AbstractVector{UInt8})
 end
 
 """
-    _scan_ad2cp(buf; validate=true) -> (records, nresync)
+    _scan_ad2cp(buf; validate=true) -> (records, nresync, nbadbody, ntrail)
 
 Scan a raw .ad2cp buffer for records: returns `(id, start, size)` (start = 1-based index
 of the first data byte) for every record whose header (and, when `validate`, data)
 checksum verifies; resynchronizes on corruption by searching for the next valid header.
+`nbadbody` counts records whose header verified but whose data checksum did not.
 """
 function _scan_ad2cp(buf::Vector{UInt8}; validate::Bool=true)
     recs = @NamedTuple{id::UInt8, start::Int, size::Int}[]
     pos = 1
     n = length(buf)
     nresync = 0
+    nbadbody = 0
     while pos + 9 <= n
         if !(buf[pos] == 0xA5 && buf[pos+1] == 0x0A)
             pos += 1
@@ -62,11 +64,11 @@ function _scan_ad2cp(buf::Vector{UInt8}; validate::Bool=true)
         end
         ok = !validate ||
              _ad2cp_checksum(view(buf, pos+10:pos+9+dsz)) == _u16(buf, pos + 6)
-        ok && push!(recs, (id=buf[pos+2], start=pos + 10, size=dsz))
+        ok ? push!(recs, (id=buf[pos+2], start=pos + 10, size=dsz)) : (nbadbody += 1)
         pos += 10 + dsz
     end
     ntrail = n - pos + 1              # bytes of a truncated final record, if any
-    return recs, nresync, max(ntrail, 0)
+    return recs, nresync, nbadbody, max(ntrail, 0)
 end
 
 _bit(x, k) = (x >> k) & 0x1 == 1
@@ -149,14 +151,20 @@ skipped (counted in a `@warn`).
 function read_ad2cp(path::AbstractString; plan::Symbol=:average,
                     validate_checksums::Bool=true)
     buf = read(path)
-    recs, nresync, ntrail = _scan_ad2cp(buf; validate=validate_checksums)
+    recs, nresync, nbadbody, ntrail = _scan_ad2cp(buf; validate=validate_checksums)
     isempty(recs) && error("read_ad2cp: no valid records in $path")
     nresync > 0 && @warn "read_ad2cp: resynchronized past $nresync corrupt bytes"
+    nbadbody > 0 && @warn "read_ad2cp: dropped $nbadbody record(s) failing their data checksum"
     ntrail > 10 && @warn "read_ad2cp: file ends mid-record ($ntrail trailing bytes unparsed — truncated download?)"
 
     want = plan === :burst ? 0x15 : 0x16
     prof = [r for r in recs if r.id == want]
     btrecs = [r for r in recs if r.id == 0x17]
+    # the DF3/DF20 fixed prefix is 76 bytes; anything shorter cannot be parsed
+    nshort = count(r -> r.size < 76, prof) + count(r -> r.size < 66, btrecs)
+    nshort > 0 && @warn "read_ad2cp: dropped $nshort undersized record(s)"
+    prof = [r for r in prof if r.size >= 76]
+    btrecs = [r for r in btrecs if r.size >= 66]
     isempty(prof) &&
         error("read_ad2cp: no $(plan) records (IDs present: $(unique(getfield.(recs, :id))))")
 
@@ -225,20 +233,26 @@ function read_ad2cp(path::AbstractString; plan::Symbol=:average,
         ensemble[i] = Float64(_u32(d, 73))
 
         o = Int(_u8(d, 2)) + 1                           # first data byte (1-based)
+        # payload must fit inside the record: a corrupt-but-checksum-colliding (or
+        # unvalidated) record with a short body would otherwise BoundsError
+        need = o - 1 + (_bit(cfg, 5) ? 2 * nb * nc : 0) +
+               (_bit(cfg, 6) ? nb * nc : 0) + (_bit(cfg, 7) ? nb * nc : 0)
+        need > r.size && (keep[i] = false; continue)
+        nbr = min(nb, 4)                                 # store at most 4 beams
         if _bit(cfg, 5)                                  # velocity i16[nb][nc]
-            for b in 1:nb, k in 1:nc
+            for b in 1:nbr, k in 1:nc
                 vel[k, b, i] = Float32(_i16(d, o + 2 * ((b - 1) * nc + (k - 1))) * vscale)
             end
             o += 2 * nb * nc
         end
         if _bit(cfg, 6)                                  # amplitude u8, 0.5 dB/count
-            for b in 1:nb, k in 1:nc
+            for b in 1:nbr, k in 1:nc
                 amp[k, b, i] = _u8(d, o + (b - 1) * nc + (k - 1)) * 0.5f0
             end
             o += nb * nc
         end
         if _bit(cfg, 7)                                  # correlation u8, %
-            for b in 1:nb, k in 1:nc
+            for b in 1:nbr, k in 1:nc
                 corr[k, b, i] = Float32(_u8(d, o + (b - 1) * nc + (k - 1)))
             end
         end
@@ -271,6 +285,9 @@ function read_ad2cp(path::AbstractString; plan::Symbol=:average,
             btpi[i] = _i16(d, 27) * 0.01f0
             btr[i] = _i16(d, 29) * 0.01f0
             o = Int(_u8(d, 2)) + 1
+            need = o - 1 + (_bit(cfg, 5) ? 4bnb : 0) + (_bit(cfg, 8) ? 4bnb : 0) +
+                   (_bit(cfg, 9) ? 2bnb : 0)
+            need > r.size && (btkeep[i] = false; continue)
             if _bit(cfg, 5)
                 for b in 1:min(bnb, 4)
                     btvel[b, i] = Float32(_i32(d, o + 4(b - 1)) * vscale)

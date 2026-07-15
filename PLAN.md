@@ -428,6 +428,14 @@ All six §8a tasks closed, then:
    (`fallback=flight_model(nav)`; ~1.4 cm/s from the water track, unbiased —
    quantified against the ADCP on all four missions) → onboard estimate;
    `compute_dac(nav, flight_model(nav))` serves ADCP-less deployments. 413 tests.
+4. **Pre-release hardening review (v0.2.0 gate).** Whole-package correctness
+   review, every finding reproduced: 19 defects fixed with regression tests
+   (→ 439). Headliners: the inverse silently solved anchor-less segments with an
+   arbitrary datum (now skipped unless BT anchors them); all-screened
+   `bt_velocity` crashed the documented solve workflow (typed-empty now); the io
+   "degrade loudly" contract enforced against corrupt input across the binary,
+   `$PNOR`, gli and Slocum readers. No published result affected. Full list:
+   validation doc 2026-07-15 hardening entry.
 
 ## 9. Risks & open questions
 

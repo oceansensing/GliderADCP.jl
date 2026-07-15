@@ -53,8 +53,11 @@ function load_seaexplorer_nav(src; stream::AbstractString="gli.sub",
     t = SeaExplorerIO.read_gli(src; stream, epoch_min=mintime)
     n = length(t)
     col(name) = haskey(t, name) ? t[name] : fill(NaN, n)
+    # round + clamp: a merged-cell corrupt line can parse to a finite non-integral
+    # or out-of-range value — degrade to a clamped flag, never an InexactError
     icol(name, ::Type{T}, default) where {T} =
-        T[isfinite(v) ? T(v) : T(default) for v in col(name)]
+        T[isfinite(v) ? T(clamp(round(v), typemin(T), typemax(T))) : T(default)
+          for v in col(name)]
     GliderNav(t.time, datetime2unix.(t.time),
         col("Lon"), col("Lat"),
         col("Heading"), col("Declination"), col("Pitch"), col("Roll"), col("Depth"),

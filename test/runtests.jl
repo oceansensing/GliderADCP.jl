@@ -526,6 +526,151 @@ end
         @test dacO.method[1] === :onboard
     end
 
+    @testset "pre-release hardening (2026-07-15 review)" begin
+        t0 = DateTime(2022, 11, 4)
+
+        # inverse: a segment whose DAC row cannot be placed (every populated bin
+        # below the glider) has no absolute reference — must be skipped, never
+        # silently solved with an arbitrary datum; a BT row restores solvability
+        nt = 50
+        tping = collect(0.0:1.0:49.0)
+        E = fill(0.1, 3, nt)
+        N = zeros(3, nt)
+        cd = repeat([15.0, 25.0, 35.0], 1, nt)
+        @test invert_segment(E, N, cd, tping, 10.5; dacu=0.2, dacv=0.0) === nothing
+        btdf = DataFrame(time=[t0], t=[25.0], u=[0.1], v=[0.0], w=[0.0], range=[12.0])
+        sol = invert_segment(E, N, cd, tping, 10.5; dacu=0.2, dacv=0.0, bt=btdf)
+        @test sol !== nothing && all(isfinite, sol.u)
+        # :platform DAC on a one-ping segment: skip, don't throw
+        @test invert_segment(E[:, 1:1], N[:, 1:1], cd[:, 1:1], [0.0], 10.5;
+            dacu=0.2, dacv=0.0, opts=InverseOptions(dac_form=:platform)) === nothing
+
+        # bt_velocity with every lock screened → typed empty table (the documented
+        # solve_inverse(...; bt=btv) workflow must keep working)
+        nbt = 4
+        btt = collect(t0 .+ Second.(600 .* (0:nbt-1)))
+        btall = BottomTrackData(btt, datetime2unix.(btt),
+            fill(0.1f0, 4, nbt), fill(1.5, 4, nbt), fill(100.0f0, 4, nbt),
+            [100.0, 100, 100, 500], fill(90.0f0, nbt), fill(-17.0f0, nbt),
+            fill(0.0f0, nbt), fill(1490.0f0, nbt))
+        cfg2 = AD2CPConfig(1, 1000.0, (47.5, 25.0, 47.5, 25.0), (0.0, -90.0, 180.0, 90.0),
+            fill(NaN, 4, 4), 15, 2.0, 0.7, :beam, 2.5, 0.0, 0.0, 38.0, Dict{String,Any}())
+        tv2 = collect(t0 .+ Second.(10 .* (0:nbt-1)))
+        a2 = AD2CPData(tv2, datetime2unix.(tv2), collect(2.7:2.0:30.7),
+            fill(NaN32, 15, 4, nbt), fill(80f0, 15, 4, nbt), fill(90f0, 15, 4, nbt),
+            fill(90f0, nbt), fill(-17f0, nbt), fill(0f0, nbt), fill(100.0, nbt),
+            fill(7f0, nbt), fill(1500f0, nbt), repeat(Float32[0, 0, -0.95], 1, nbt),
+            fill(NaN32, 3, nbt), zeros(nbt), zeros(nbt), collect(1.0:nbt), cfg2, btall)
+        btv = bt_velocity(a2; look=:down)
+        @test nrow(btv) == 0
+        @test btv.t isa Vector{Float64}          # the exact access that used to throw
+
+        # show survives NaN frequency; empty getindex empties the BT too
+        cfgnan = AD2CPConfig(1, NaN, (47.5, 25.0, 47.5, 25.0), (0.0, -90.0, 180.0, 90.0),
+            fill(NaN, 4, 4), 15, 2.0, 0.7, :beam, 2.5, 0.0, 0.0, 38.0, Dict{String,Any}())
+        a3 = AD2CPData(tv2, datetime2unix.(tv2), collect(2.7:2.0:30.7),
+            fill(NaN32, 15, 4, nbt), fill(80f0, 15, 4, nbt), fill(90f0, 15, 4, nbt),
+            fill(90f0, nbt), fill(-17f0, nbt), fill(0f0, nbt), fill(100.0, nbt),
+            fill(7f0, nbt), fill(1500f0, nbt), repeat(Float32[0, 0, -0.95], 1, nbt),
+            fill(NaN32, 3, nbt), zeros(nbt), zeros(nbt), collect(1.0:nbt), cfgnan, btall)
+        @test occursin("? kHz", sprint(show, a3))
+        sub = a3[Int[]]
+        @test length(sub) == 0 && length(sub.bt) == 0
+
+        # binary scanner: body-checksum failures are counted, not silently dropped
+        function mkrec(id, data)
+            n = length(data)
+            hdr = UInt8[0xA5, 0x0A, id, 0x00, UInt8(n & 0xff), UInt8(n >> 8),
+                        0x00, 0x00, 0x00, 0x00]
+            dcs = GliderADCP._ad2cp_checksum(data)
+            hdr[7] = UInt8(dcs & 0xff)
+            hdr[8] = UInt8(dcs >> 8)
+            hcs = GliderADCP._ad2cp_checksum(hdr[1:8])
+            hdr[9] = UInt8(hcs & 0xff)
+            hdr[10] = UInt8(hcs >> 8)
+            vcat(hdr, data)
+        end
+        good = mkrec(0x16, UInt8.(1:80))
+        bad = mkrec(0x16, UInt8.(1:80))
+        bad[15] ⊻= 0xFF                          # flip one body byte
+        recs, nre, nbadbody, _ = GliderADCP._scan_ad2cp(vcat(good, bad))
+        @test length(recs) == 1 && nbadbody == 1 && nre == 0
+
+        # $PNOR: a line whose parse throws (multibyte tear) is skipped with a warning;
+        # an absurd cell index is ignored instead of driving a giant allocation
+        cksum(s) = uppercase(string(reduce(⊻, codeunits(s)), base=16, pad=2))
+        mkline(payload) = "\$" * payload * "*" * cksum(payload)
+        pnordir = mktempdir()
+        fn = joinpath(pnordir, "sea064.38.ad2cp.raw.1")
+        open(fn, "w") do io
+            println(io, mkline("PNORI,4,102381,4,2,0.70,2.00,2"))
+            println(io, mkline("PNORS,110422,120000,0,2A480000,24.1,1500.0,90.0,-17.0,0.5,100.123,8.5,0,0"))
+            println(io, mkline("PNORC,110422,120000,1,0.10,-0.10,0.05,0.05,0.2,90.0,C,80,80,80,80,90,90,90,90"))
+            println(io, mkline("PNORC,110422,120000,999999,0.10,-0.10,0.05,0.05,0.2,90.0,C,80,80,80,80,90,90,90,90"))
+            println(io, mkline("PNORS,110422,120010,0,2A480000,24.1,1500.0,90.0,-17.0,0.5,100.123,8.5,0,é"))
+        end
+        a5 = @test_logs (:warn, r"unparseable") match_mode = :any load_pnor([fn])
+        @test length(a5) == 1                    # the torn $PNORS never became an ensemble
+        @test size(a5.vel, 1) == 2               # ...and cell 999999 never allocated
+        @test a5.vel[1, 1, 1] ≈ 0.10f0
+
+        # grid_profiles: empty profile table stays typed (export used to crash)
+        emptyprof = DataFrame(yo=Int[], t_mid=DateTime[], z=Float64[],
+                              u=Float64[], v=Float64[], nobs=Int[], nbt=Int[])
+        sec0 = grid_profiles(emptyprof)
+        @test sec0.t isa Vector{DateTime} && isempty(sec0.t)
+
+        # shear_segment: min_bin_obs=0 leaves empty bins NaN instead of throwing
+        cds = repeat([45.0, 55.0], 1, 20)
+        seg = shear_segment(fill(0.1, 2, 20), fill(0.0, 2, 20), cds, [45.0, 55.0];
+                            opts=ShearOptions(min_bin_obs=0))
+        @test seg !== nothing && any(isnan, seg.sh_u)
+
+        # shear_bias velocity_scaled with no qualifying ping: warn + degrade
+        off4 = collect(2.0:2.0:8.0)              # 4 cells < the 5-cell minimum
+        pp4 = ProcessedPings(tv2, datetime2unix.(tv2), fill(50.0, nbt),
+            fill(90.0, nbt), off4, fill(0.1, 4, nbt), fill(0.0, 4, nbt),
+            zeros(4, nbt), off4 .+ fill(50.0, nbt)', :down, fill((1, 2, 4), nbt))
+        r8 = @test_logs (:warn, r"no ping qualified") match_mode = :any shear_bias(
+            pp4; velocity_scaled=true)
+        @test r8 !== nothing
+
+        # magnetic_declination: a single-instant query inside coverage is answered
+        navt = collect(t0 .+ Second.([0, 600, 1200]))
+        nav9 = GliderNav(navt, datetime2unix.(navt), [5.0, 5.01, 5.02],
+            [69.5, 69.5, 69.5], fill(90.0, 3), zeros(3), zeros(3), zeros(3),
+            fill(50.0, 3), fill(Int16(110), 3), fill(Int8(1), 3), fill(-1.0, 3),
+            DataFrame())
+        d9 = magnetic_declination(nav9, [nav9.t[2]])
+        @test length(d9) == 1 && isfinite(d9[1])
+
+        # data_gaps: a NaN stamp must not mask the real gap
+        g10 = @test_logs (:warn, r"non-finite") data_gaps([0.0, 10.0, NaN, 5000.0, 5010.0])
+        @test nrow(g10) == 1
+        @test g10.duration[1] ≈ 4990.0
+
+        # Slocum route: missing/NaN times dropped loudly; NaN-filled (dbdreader
+        # convention) water velocities and declination handled; empty result typed
+        dfs = DataFrame(
+            time=[t0, t0 + Second(600), missing, t0 + Second(1200)],
+            m_water_vx=[NaN, 0.10, 0.10, NaN],
+            m_water_vy=[NaN, -0.05, -0.05, NaN],
+            m_gps_mag_var=[NaN, deg2rad(-10.0), NaN, NaN],
+            m_depth=[5.0, 80.0, 90.0, 4.0],
+            source_file=["a", "a", "a", "a"])
+        nav11 = @test_logs (:warn, r"dropped") match_mode = :any slocum_nav(dfs)
+        @test length(nav11) == 3
+        d11 = dac_from_slocum(dfs)
+        @test nrow(d11) == 1
+        c10, s10 = cosd(-10.0), sind(-10.0)
+        @test d11.u[1] ≈ 0.10c10 - (-0.05)s10 atol = 1e-12
+        @test d11.v[1] ≈ 0.10s10 + (-0.05)c10 atol = 1e-12
+        dfe = DataFrame(time=[t0, t0 + Second(60)], m_water_vx=[0.1, 0.1],
+            m_water_vy=[0.0, 0.0], m_depth=[3.0, 4.0], source_file=["a", "a"])
+        e11 = dac_from_slocum(dfe)
+        @test nrow(e11) == 0 && hasproperty(e11, :t_start)
+    end
+
     @testset "end-to-end structure orientation (depth-varying flow through geometry)" begin
         # A pure baroclinic sign flip preserves depth means, dive/climb consistency and
         # DAC closure — so this dedicated test drives a depth-VARYING flow through the

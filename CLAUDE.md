@@ -18,7 +18,7 @@ extension; not yet public).
 ## Commands
 
 ```bash
-# tests (413; gated acceptance tests auto-skip when local mission data is absent)
+# tests (439; gated acceptance tests auto-skip when local mission data is absent)
 ~/.juliaup/bin/julia +1.13 --project=. -e 'using Pkg; Pkg.test()'
 
 # docs (Documenter; SeaExplorerIO is dev'd into docs/Manifest)

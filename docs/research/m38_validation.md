@@ -730,3 +730,41 @@ sustained +4–5 cm/s eastward block from Jul 27–Aug 13 while the glider point
 upstream into the Gulf Stream (the anti-track bias never averaging out), and
 M48's both-sign ~10 cm/s noisy-DR stripes. The telemetered figures reproduce
 the delayed ones nearly bin-for-bin.
+
+## Pre-release hardening review (2026-07-15, v0.2.0 gate)
+
+Whole-package correctness review before tagging v0.2.0 (two independent
+reviewers over io and solver/product layers, every finding reproduced against
+the running code, plus a line-level pass over the new DAC/flight-model work).
+Nothing found affects any published mission result — every trigger is an
+edge/corrupt-input condition the four validated missions never hit — but 19
+defects were fixed, each with a regression test (413 → 439):
+
+- **The one that mattered most** (`invert_segment`): a segment whose DAC row
+  could not be placed (every populated bin below the glider — shallow yo +
+  coarse `dz`) was silently solved without any absolute reference; the sparse
+  QR pinned the datum arbitrarily and the wrong profile looked healthy. Such
+  segments are now skipped (like the shear solver always did) unless a BT row
+  anchors them.
+- `bt_velocity` with every lock screened (the normal open-ocean outcome)
+  returned a column-less table that crashed the documented
+  `solve_inverse(...; bt=btv)` workflow → typed-empty now.
+- io contract ("degrade loudly, never crash") enforced against corrupt input:
+  data-checksum failures in `.ad2cp` bodies counted and warned (were silent);
+  undersized/short-payload records skipped instead of `BoundsError`;
+  `$PNOR` parsing is byte-safe and per-line tolerant (a binary tear killed the
+  whole load); missing `$PNORI` and zero-row files now warn; cell index capped
+  (a corrupt line could demand a ~16 GB allocation); one merged-cell gli line
+  no longer aborts nav loading (`InexactError` → clamp); Slocum route survives
+  missing timestamps and is no longer NaN-blind for dbdreader-convention
+  fills.
+- Assorted degrade-instead-of-crash guards: `:platform` DAC on a 1-ping
+  segment, `min_bin_obs=0`, `velocity_scaled` with no qualifying pings, empty
+  profile tables through grid/export, single-instant declination queries
+  (were silently all-NaN), NaN timestamps in `data_gaps` (silently disabled
+  gap detection), NaN-frequency `show`, empty `getindex` keeping full BT.
+
+Verified clean in the same review: the beam→ENU rotation chain from first
+principles, bin-index conventions across all products, sparse-system
+assembly, shear-bias round-trip, binary offsets vs the Nortek DF3/DF20
+layouts, and the new flight-model/DAC-ladder code.

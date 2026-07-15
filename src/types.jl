@@ -94,8 +94,9 @@ ncells(a::AD2CPData) = length(a.range)
 
 function Base.show(io::IO, a::AD2CPData)
     span = isempty(a.time) ? "empty" : "$(first(a.time)) → $(last(a.time))"
+    freq = isfinite(a.config.frequency) ? string(round(Int, a.config.frequency)) : "?"
     print(io, "AD2CPData: $(length(a)) ensembles × $(ncells(a)) cells, ",
-        "$(round(Int, a.config.frequency)) kHz SN$(a.config.serial), ",
+        "$freq kHz SN$(a.config.serial), ",
         "coord=$(a.config.coordsystem), BT=$(isnothing(a.bt) ? "no" : "$(length(a.bt)) recs"), ",
         span)
 end
@@ -141,9 +142,13 @@ window), e.g. `adcp[1:5000]` or `adcp[findall(p -> p > 100, adcp.pressure)]`.
 function Base.getindex(a::AD2CPData, idx::AbstractVector)
     time = a.time[idx]
     bt = a.bt
-    if bt !== nothing && !isempty(time)
-        t1, t2 = extrema(datetime2unix.(time))
-        keep = findall(t -> t1 - 5 <= t <= t2 + 5, bt.t)
+    if bt !== nothing
+        keep = if isempty(time)                     # empty selection → empty BT too
+            Int[]
+        else
+            t1, t2 = extrema(datetime2unix.(time))
+            findall(t -> t1 - 5 <= t <= t2 + 5, bt.t)
+        end
         bt = BottomTrackData(bt.time[keep], bt.t[keep], bt.vel[:, keep],
             bt.distance[:, keep], bt.fom[:, keep], bt.pressure[keep], bt.heading[keep],
             bt.pitch[keep], bt.roll[keep], bt.soundspeed[keep])

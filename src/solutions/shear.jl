@@ -84,7 +84,7 @@ function shear_segment(E::AbstractMatrix, N::AbstractMatrix, celldepth::Abstract
     sh_u = fill(NaN, maxk); sh_v = fill(NaN, maxk)
     nobs = length.(acc_u)
     for k in 1:maxk
-        nobs[k] >= opts.min_bin_obs || continue
+        nobs[k] >= max(1, opts.min_bin_obs) || continue   # empty bins stay NaN
         sh_u[k] = stat(acc_u[k])
         sh_v[k] = stat(acc_v[k])
     end

@@ -12,7 +12,7 @@ aligned — unlike the row-index assembly in Slocum-AD2CP). Columns are ordered 
 """
 function grid_profiles(prof::DataFrame; fields::Tuple{Symbol,Symbol}=(:u, :v))
     yos = unique(prof.yo)
-    tmid = [first(prof.t_mid[prof.yo .== y]) for y in yos]
+    tmid = DateTime[first(prof.t_mid[prof.yo .== y]) for y in yos]
     ord = sortperm(tmid)
     yos, tmid = yos[ord], tmid[ord]
     z = sort(unique(prof.z))

@@ -15,16 +15,26 @@
 # consumer (e.g. a backseat driver); shore-side realtime products come from the
 # telemetered pld1.sub subset instead (`load_pld_adcp`).
 
+# byte-wise on codeunits throughout: corrupt lines can carry multibyte garbage, and
+# string indexing near it would throw StringIndexError — the checksum validator must
+# never crash on the corruption it exists to reject
+_hexval(b::UInt8) = UInt8('0') <= b <= UInt8('9') ? b - UInt8('0') :
+                    UInt8('A') <= b <= UInt8('F') ? b - UInt8('A') + 0x0a :
+                    UInt8('a') <= b <= UInt8('f') ? b - UInt8('a') + 0x0a : 0xff
+
 function _nmea_checksum_ok(line::AbstractString)
-    startswith(line, '$') || return false
-    star = findlast('*', line)
-    (star === nothing || star + 2 > lastindex(line)) && return false
+    cu = codeunits(line)
+    (length(cu) >= 4 && cu[1] == UInt8('$')) || return false
+    star = findlast(==(UInt8('*')), cu)
+    (star === nothing || star + 2 > length(cu)) && return false
     cs = 0x00
-    for c in codeunits(SubString(line, 2, star - 1))
-        cs ⊻= c
+    for i in 2:star-1
+        cs ⊻= cu[i]
     end
-    parsed = tryparse(UInt8, line[star+1:star+2]; base=16)
-    return parsed !== nothing && parsed == cs
+    hi = _hexval(cu[star+1])
+    lo = _hexval(cu[star+2])
+    (hi == 0xff || lo == 0xff) && return false
+    return (hi << 4) | lo == cs
 end
 
 _pnor_fields(line) = split(SubString(line, 1, something(findlast('*', line), lastindex(line) + 1) - 1), ',')
@@ -64,6 +74,8 @@ function load_pnor(src; stream::AbstractString="ad2cp.raw", validate_checksum::B
     sens = NamedTuple[]              # per-ensemble sensor tuple
     cells = Vector{Matrix{Float32}}[]  # per-ensemble [vel amp corr] (ncells × 4 each)
     cur = nothing                    # current ensemble datetime
+    nbadline = 0                     # lines whose parse threw (binary tears etc.)
+    nempty = 0                       # files contributing zero $PNOR sentences
 
     for f in files
         raw = try
@@ -72,9 +84,12 @@ function load_pnor(src; stream::AbstractString="ad2cp.raw", validate_checksum::B
             @warn "load_pnor: skipping unreadable file" file = basename(f) error = sprint(showerror, err)
             continue
         end
+        nfile = 0
         for line in eachline(IOBuffer(raw))
+            try
             line = strip(line)
             startswith(line, "\$PNOR") || continue
+            nfile += 1
             validate_checksum && !_nmea_checksum_ok(line) && continue
             p = _pnor_fields(line)
             if p[1] == "\$PNORI" && length(p) >= 8
@@ -101,7 +116,9 @@ function load_pnor(src; stream::AbstractString="ad2cp.raw", validate_checksum::B
                 dt = _pnor_datetime(p[2], p[3])
                 dt == cur || continue
                 k = tryparse(Int, p[4])
-                (k === nothing || k < 1) && continue
+                # cap the cell index: a corrupt line surviving the checksum must not
+                # drive an unbounded grow-on-demand allocation
+                (k === nothing || k < 1 || k > 1024) && continue
                 V, A, C = cells[end]
                 if k > size(V, 1)   # grow if PNORI undersold the cell count
                     for (m, M) in enumerate(cells[end])
@@ -115,9 +132,20 @@ function load_pnor(src; stream::AbstractString="ad2cp.raw", validate_checksum::B
                     C[k, b] = Float32(_pnor_f(p[15+b]))
                 end
             end
+            catch
+                nbadline += 1                    # binary tear inside a $PNOR line
+            end
         end
+        nfile == 0 && (nempty += 1)
     end
+    nbadline > 0 && @warn "load_pnor: skipped $nbadline unparseable \$PNOR line(s)"
+    nempty > 0 && @warn "load_pnor: no \$PNOR rows parsed from $nempty of " *
+                        "$(length(files)) file(s) — unsynced placeholders?"
     isempty(ens_time) && error("load_pnor: no ensembles parsed")
+    if !isfinite(blanking) || !isfinite(cellsize)
+        @warn "load_pnor: no \$PNORI configuration record seen — cell geometry " *
+              "(blanking/cellsize/range) is NaN; was the first segment transferred?"
+    end
 
     nc = maximum(size(c[1], 1) for c in cells)
     nt = length(ens_time)

@@ -101,6 +101,7 @@ function invert_segment(E::AbstractMatrix, N::AbstractMatrix, celldepth::Abstrac
     r == 0 && return nothing
 
     # --- DAC constraint ---------------------------------------------------------------
+    anchored = false                  # at least one absolute-reference row (DAC or BT)
     if isfinite(dacu) && isfinite(dacv) && opts.wdac > 0
         if opts.dac_form === :ocean || opts.dac_form === :ocean_timeweighted
             covered = [k for k in 1:nz if (kmin + k - 2 + 0.5) * dz <= maxgliderdepth &&
@@ -121,19 +122,23 @@ function invert_segment(E::AbstractMatrix, N::AbstractMatrix, celldepth::Abstrac
                 end
                 push!(du, opts.wdac * Cn * dacu)
                 push!(dv, opts.wdac * Cn * dacv)
+                anchored = true
             end
         elseif opts.dac_form === :platform
-            dt = diff(tping)
-            mdt = median(dt)
-            dts = [clamp(i == nt ? mdt : dt[i], 0, 10mdt) for i in 1:nt]
-            T = sum(dts)
-            Cn = 1 / sqrt(sum((dts ./ T) .^ 2))
-            r += 1
-            for j in 1:nt
-                addentry(r, j, opts.wdac * Cn * dts[j] / T)
+            if nt >= 2                               # a 1-ping segment has no time base
+                dt = diff(tping)
+                mdt = median(dt)
+                dts = [clamp(i == nt ? mdt : dt[i], 0, 10mdt) for i in 1:nt]
+                T = sum(dts)
+                Cn = 1 / sqrt(sum((dts ./ T) .^ 2))
+                r += 1
+                for j in 1:nt
+                    addentry(r, j, opts.wdac * Cn * dts[j] / T)
+                end
+                push!(du, opts.wdac * Cn * dacu)
+                push!(dv, opts.wdac * Cn * dacv)
+                anchored = true
             end
-            push!(du, opts.wdac * Cn * dacu)
-            push!(dv, opts.wdac * Cn * dacv)
         else
             error("invert_segment: dac_form must be :ocean or :platform")
         end
@@ -159,6 +164,13 @@ function invert_segment(E::AbstractMatrix, N::AbstractMatrix, celldepth::Abstrac
             nbt += 1
         end
     end
+    nbt > 0 && (anchored = true)
+
+    # Without at least one absolute-reference row (DAC or BT) the system determines
+    # only relative velocities — the constant vector is in its null space, and the
+    # sparse QR would silently pin the datum arbitrarily. Skip the segment instead
+    # (it shows up in solve_inverse's skipped-segment summary).
+    anchored || return nothing
 
     # --- smoothness (interior second differences) --------------------------------------
     if opts.wsmooth_ocean > 0
@@ -228,7 +240,8 @@ function solve_inverse(p::ProcessedPings, dac::DataFrame;
     nsolved = isempty(out) ? 0 : length(unique(out.yo))
     nsolved < nrow(dac) &&
         @info "solve_inverse: solved $nsolved of $(nrow(dac)) segments " *
-              "($nfew with fewer than $(opts.min_pings) pings, $nfail with no usable data)"
+              "($nfew with fewer than $(opts.min_pings) pings, " *
+              "$nfail with no usable data or no absolute reference)"
     return out
 end
 

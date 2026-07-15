@@ -86,7 +86,11 @@ function shear_bias(p::ProcessedPings; min_count::Int=1000, velocity_scaled::Boo
     cross = vcat(0.0, cumsum(δc))
     along .-= mean(along)
     cross .-= mean(cross)
-    ref_speed = velocity_scaled ? median(speeds) : 1.0
+    if velocity_scaled && isempty(speeds)
+        @warn "shear_bias: velocity_scaled requested but no ping qualified for a " *
+              "speed estimate — returning the unscaled estimate"
+    end
+    ref_speed = velocity_scaled && !isempty(speeds) ? median(speeds) : 1.0
     fitslope(b) = begin
         g = findall(isfinite, b)
         length(g) > 3 ? ref_speed * cov(p.offsets[g], b[g]) / var(p.offsets[g]) : NaN

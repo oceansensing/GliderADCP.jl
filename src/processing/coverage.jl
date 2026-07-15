@@ -16,11 +16,18 @@ function data_gaps(t::AbstractVector{<:Real}; max_gap::Union{Real,Symbol}=:auto)
     out = DataFrame(start=DateTime[], stop=DateTime[], duration=Float64[])
     n = length(t)
     n < 2 && return out
-    dts = diff(t)
+    tt = collect(Float64, t)
+    if !all(isfinite, tt)
+        @warn "data_gaps: ignoring $(count(!isfinite, tt)) non-finite timestamp(s)"
+        tt = filter(isfinite, tt)                # a NaN stamp must not mask real gaps
+        n = length(tt)
+        n < 2 && return out
+    end
+    dts = diff(tt)
     thr = max_gap === :auto ? max(10 * median(dts), 60.0) : Float64(max_gap)
     for i in 1:n-1
         dts[i] > thr &&
-            push!(out, (unix2datetime(t[i]), unix2datetime(t[i+1]), dts[i]))
+            push!(out, (unix2datetime(tt[i]), unix2datetime(tt[i+1]), dts[i]))
     end
     return out
 end

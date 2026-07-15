@@ -38,7 +38,16 @@ function magnetic_declination(nav::GliderNav, t::AbstractVector; every::Real=360
         (isfinite(latk[i]) && isfinite(lonk[i])) || continue
         dk[i] = magnetic_declination(latk[i], lonk[i], unix2datetime(knots[i]))
     end
-    out = _interp1(knots, dk, collect(Float64, t))
+    # _interp1 needs two knots; a single-instant query (or a lone usable knot) would
+    # otherwise come back all-NaN with no warning and silently drop every affected
+    # ping from the ENU transform downstream
+    out = length(knots) >= 2 ? _interp1(knots, dk, collect(Float64, t)) :
+                               fill(dk[1], length(t))
+    if all(isnan, out) && any(isfinite, dk)
+        out .= dk[findfirst(isfinite, dk)]
+        @warn "magnetic_declination: single usable IGRF knot — constant declination " *
+              "applied to all $(length(out)) pings"
+    end
     # constant-extrapolate at the edges: declination varies slowly, and NaN declination
     # would silently drop every affected ping from the ENU transform downstream
     fin = findall(isfinite, out)

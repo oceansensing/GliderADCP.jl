@@ -209,5 +209,9 @@ function bt_velocity(a::AD2CPData; look::Symbol=:auto, declination=0.0,
         rng = mean(bt.distance[b2, i] for b2 in sel)
         push!(rows, (time=bt.time[i], t=bt.t[i], u=vg[1], v=vg[2], w=vg[3], range=rng))
     end
+    # typed empty when every lock is screened out (the common open-ocean outcome),
+    # so downstream column access (`bt.t` in solve_inverse) keeps working
+    isempty(rows) && return DataFrame(time=DateTime[], t=Float64[], u=Float64[],
+                                      v=Float64[], w=Float64[], range=Float64[])
     return DataFrame(rows)
 end

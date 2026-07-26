@@ -148,7 +148,9 @@ fractions. The noise floor is the pooled 0.5th amplitude percentile, as in [`qc!
 function cell_quality(a::AD2CPData; thr::QCThresholds=QCThresholds())
     nc, nb, nt = size(a.vel)
     floor_db = isfinite(thr.snr_db) ? nanpctile(a.amp, 0.5) : -Inf
-    rows = NamedTuple[]
+    rows = DataFrame(cell=Int[], range=Float64[], beam=Int[], n=Int[],
+                     med_corr=Float64[], med_amp=Float64[],
+                     keep_corr=Float64[], keep_amp=Float64[], keep_all=Float64[])
     for b in 1:nb, k in 1:nc
         c = @view a.corr[k, b, :]
         m = @view a.amp[k, b, :]
@@ -167,5 +169,5 @@ function cell_quality(a::AD2CPData; thr::QCThresholds=QCThresholds())
             med_corr=median(c[fin]), med_amp=median(m[fin]),
             keep_corr=kc, keep_amp=ka, keep_all=kall))
     end
-    return DataFrame(rows)
+    return rows
 end

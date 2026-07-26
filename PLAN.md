@@ -3,11 +3,13 @@
 **A pure-Julia toolbox for processing Nortek AD2CP data from SeaExplorer and Slocum gliders
 into absolute ocean velocity profiles.**
 
-Status (2026-07-11): **all phases complete** (0–7) plus the §8a follow-up queue and
-§8b post-queue work — 355 tests, four validated missions (M37/M38/M48/M59), the
-three-tier data-route taxonomy (delayed-mode / realtime-onboard / realtime-telemetered),
-and the first-cell verdict (kept by default for ≥ 0.5 m blanking). Remaining: v0.1.0
-tag + General-registry registration (SeaExplorerIO.jl first), whenever desired.
+Status (2026-07-16): **all phases complete** (0–7) plus the §8a/§8b/§8c follow-up
+work — 448 tests, four validated missions (M37/M38/M48/M59), the three-tier
+data-route taxonomy (delayed-mode / realtime-onboard / realtime-telemetered), the
+first-cell verdict (kept by default for ≥ 0.5 m blanking), and the water-track DAC
+ladder (the onboard flight model is out of the product loop). Released: **v0.2.0**,
+archived on Zenodo (concept DOI 10.5281/zenodo.21345325). Remaining:
+General-registry registration (SeaExplorerIO.jl first), whenever desired.
 This document is kept as the design record; user-facing documentation lives in `docs/`
 — start with [docs/src/tutorial.md](docs/src/tutorial.md) for a full scientific
 walkthrough of the pipeline.
@@ -171,7 +173,10 @@ Layer 4  solutions/shear.jl        grid_shear → integrate → reference (DAC/B
 Layer 5  products/grid.jl, export.jl, Makie extension
 ```
 
-Public API sketch (final deliverable for a mission):
+Public API sketch (final deliverable for a mission) — **as sketched at design time**;
+the shipped API differs (no `ProcessingOptions`/`QCDefaults`/`compare`, and the DAC is
+now the water-track ladder `compute_dac(nav, pings; fallback=flight_model(nav))`). See
+[docs/src/tutorial.md](docs/src/tutorial.md) for the real thing:
 
 ```julia
 adcp   = load_ad2cp("sea064_M38.ad2cp.*.nc")

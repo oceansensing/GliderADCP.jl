@@ -102,7 +102,7 @@ inside the transmitted `pld1.sub` (`load_pld_adcp` — one ensemble per ~30 s, 6
 through the same pipeline it matches the delayed inverse at 28–45 mm/s rms with
 |bias| ≤ 0.8 mm/s on all four validated missions — at the method-uncertainty floor —
 and ~3–4× closer to the delayed truth than ALSEAMAR's proprietary GLIMPSE product from
-the identical input (rms 101–127 mm/s, biases up to 38 mm/s)
+the identical input (rms 100–129 mm/s, biases to ~19 mm/s)
 (`examples/realtime_telemetered.jl`; see the QA/QC guide §8 for the routes table). Two caveats: pass `look=` explicitly to
 `process_pings` (the stream has no accelerometer), and expect the shear-method product
 to carry ~2.5 cm/s rms extra noise, since vertical integration accumulates the

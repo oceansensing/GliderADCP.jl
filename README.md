@@ -157,7 +157,7 @@ nav = load_seaexplorer_nav(["delayed/nav/logs", "glimpse"]; stream = "38.gli.sub
 
 ## Validation
 
-Six independent lines, all in the test suite (359 tests) or scripted, with gated
+Seven independent lines, all in the test suite (448 tests) or scripted, with gated
 acceptance tests that run on real missions when the data is present.
 
 1. **Reference-implementation parity** — the beam→XYZ transform reproduces `gliderad2cp`
@@ -178,14 +178,21 @@ acceptance tests that run on real missions when the data is present.
    (what shore actually receives, 1 ensemble/~30 s × 6 cells): matches the delayed
    inverse at 28–45 mm/s rms with |bias| ≤ 0.8 mm/s on all four missions — the
    method-uncertainty floor, and ~3–4× closer to the delayed truth than ALSEAMAR's
-   proprietary product from the same input (101–127 mm/s, biases up to 38 mm/s). Telemetered
-   w flags coherent events but aliases fine structure (r = 0.66–0.84; per-mission
-   diagnostic in the example).
+   proprietary product from the same input (100–129 mm/s, r = 0.56–0.89, biases to
+   ~19 mm/s). Telemetered w flags coherent events but aliases fine structure
+   (r = 0.66–0.84; per-mission diagnostic in the example).
 6. **Data-QC discovery** — on M38, 99.7% of bottom-track locks proved false (near-field
    water-borne targets); feeding them to the inverse injected a spurious 300-m shear
    layer. `bt_valid` now screens them by default (min range + impossible-bathymetry
    test), correctly rejecting all of M38's false locks while passing M37's 16 genuine
    ridge-slope locks. See the [QA/QC guide](docs/src/qaqc.md).
+7. **The absolute reference itself** — the vehicle's onboard dead-reckoning runs
+   ×1.05–×1.15 fast on all four missions (measured against the ADCP's directly
+   observed through-water flow), biasing a nav-only DAC 2–4 cm/s *against the
+   direction of travel*. `compute_dac(nav, pings)` water-tracks the DAC instead;
+   verified against GPS surface drift on the three missions where drift can
+   arbitrate, and cross-checked by an independent flight model (~1.4 cm/s,
+   unbiased). Per-mission diagnostic: `examples/dac_methods.jl`.
 
 ## Which method?
 

@@ -781,3 +781,40 @@ budget per mission (ε ∝ U⁴) — pooled `FLIGHT_SEA064` polar
 ×1.00 everywhere except M48 (×1.05 — trim/attitude noise, not polar error).
 Code + figure recorded in GliderTurbulence's README (§Validation item 6) and
 its `examples/flightspeed_epsilon_budget.jl`.
+
+## Post-release codebase review (2026-07-16)
+
+Full-package review after v0.2.0 (not triggered by any observed failure). Six
+defects found, all reproduced before fixing, none affecting published results;
+tests 439 → 448.
+
+- **`_interp_capped` crashed on a lone finite source sample** (`clamp(…, 1, 0)`
+  → index 0 → `BoundsError`), reachable from `flight_model`, `measure_aoa`,
+  `_flight_tw` and the water-track DAC integrator whenever a record held
+  exactly one finite pitch/heading/through-water value and a query landed on
+  it (plausible: nav and ping times are both integral unix seconds). Introduced
+  with the twin flight model — GliderTurbulence's original `_interp` has the
+  guard, which the copy dropped. Now matches the twin (exact match returns the
+  sample).
+- **Empty results lost their schema in five APIs** — `compute_dac` (both
+  methods), `surface_drift`, `cell_quality`, `compass_field_check` returned
+  column-less 0×0 DataFrames, so any downstream column access raised
+  `ArgumentError: column name … not found`. This was the same defect the
+  v0.2.0 pass fixed in `bt_velocity` but did not apply consistently; e.g.
+  `examples/dac_methods.jl` would crash on a mission with no qualifying DAC
+  segment. All table-returning APIs now build results by `push!` into a typed
+  frame, so the empty and populated paths cannot drift apart (`bt_velocity`
+  and `dac_from_slocum` converted from their guard style to match).
+
+Documentation/asset staleness corrected in the same pass: README claimed 359
+tests and the pre-water-track ALSEAMAR comparison figures, and had no
+validation line for the DAC work (now item 7 of seven); the tutorial carried
+the same stale ALSEAMAR numbers; PLAN's status header still read "355 tests,
+Remaining: v0.1.0 tag" and its §4 API sketch is now marked as design-time
+history rather than shipped API; the pipeline SVG still showed the DAC as
+"fix-to-fix depth-averaged current" with no water-tracking and omitted
+`load_pld_adcp` (both boxes updated, rendering verified).
+
+Verified unchanged on real data after the refactor: M38 delayed-mode ladder
+126 ADCP / 64 flight-model / 0 onboard, shear-vs-inverse r = 0.983/0.984,
+DAC closure 1 mm/s.

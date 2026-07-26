@@ -13,12 +13,13 @@ extension; not yet public).
 - `docs/research/m38_validation.md` — the cumulative validation/finding log. Every
   major claim, retraction, and verdict is recorded there with evidence.
 - `docs/src/qaqc.md` — all data QA/QC findings as *what we found → what to check*.
-- `PLAN.md` — design record; §8a/§8b list completed follow-up work.
+- `PLAN.md` — design record; §8a/§8b/§8c list completed follow-up work (§4's API
+  sketch is design-time history, not the shipped API).
 
 ## Commands
 
 ```bash
-# tests (439; gated acceptance tests auto-skip when local mission data is absent)
+# tests (448; gated acceptance tests auto-skip when local mission data is absent)
 ~/.juliaup/bin/julia +1.13 --project=. -e 'using Pkg; Pkg.test()'
 
 # docs (Documenter; SeaExplorerIO is dev'd into docs/Manifest)

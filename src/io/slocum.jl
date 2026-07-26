@@ -80,7 +80,8 @@ function dac_from_slocum(df::DataFrame; by::Symbol=:source_file, min_depth::Real
     tcol = _col(df, :time)
     tcol === nothing && error("dac_from_slocum: no `time` column")
     time = _to_datetime(tcol)
-    rows = NamedTuple[]
+    rows = DataFrame(yo=Int[], t_start=DateTime[], t_end=DateTime[], t_mid=DateTime[],
+                     duration=Float64[], u=Float64[], v=Float64[])
     yo = 0
     for g in groupby(DataFrame(df; copycols=false), by)
         idx = parentindices(g)[1]
@@ -107,7 +108,5 @@ function dac_from_slocum(df::DataFrame; by::Symbol=:source_file, min_depth::Real
             duration=(t2 - t1).value / 1000,
             u=u0 * c - v0 * s, v=u0 * s + v0 * c))
     end
-    isempty(rows) && return DataFrame(yo=Int[], t_start=DateTime[], t_end=DateTime[],
-        t_mid=DateTime[], duration=Float64[], u=Float64[], v=Float64[])
-    return sort!(DataFrame(rows), :t_start)
+    return sort!(rows, :t_start)
 end

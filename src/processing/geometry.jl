@@ -198,7 +198,8 @@ function bt_velocity(a::AD2CPData; look::Symbol=:auto, declination=0.0,
     valid = bt_valid(bt; max_range, kwargs...)
     S = Dict(sel => inv(beams_matrix(e, sel)) for sel in ((1, 2, 4), (2, 3, 4)))
     decl(i) = declination isa Number ? Float64(declination) : Float64(declination[i])
-    rows = NamedTuple[]
+    rows = DataFrame(time=DateTime[], t=Float64[], u=Float64[], v=Float64[],
+                     w=Float64[], range=Float64[])
     for i in 1:length(bt)
         h, p, r = bt.heading[i], bt.pitch[i], bt.roll[i]
         (isfinite(h) && isfinite(p) && isfinite(r)) || continue
@@ -209,9 +210,7 @@ function bt_velocity(a::AD2CPData; look::Symbol=:auto, declination=0.0,
         rng = mean(bt.distance[b2, i] for b2 in sel)
         push!(rows, (time=bt.time[i], t=bt.t[i], u=vg[1], v=vg[2], w=vg[3], range=rng))
     end
-    # typed empty when every lock is screened out (the common open-ocean outcome),
+    # stays typed when every lock is screened out (the common open-ocean outcome),
     # so downstream column access (`bt.t` in solve_inverse) keeps working
-    isempty(rows) && return DataFrame(time=DateTime[], t=Float64[], u=Float64[],
-                                      v=Float64[], w=Float64[], range=Float64[])
-    return DataFrame(rows)
+    return rows
 end

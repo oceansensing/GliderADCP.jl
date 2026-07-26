@@ -46,14 +46,27 @@ fix before diving, `(lon_dr, lat_dr)` the final dead-reckoned position and
 """
 function compute_dac(nav::GliderNav; min_duration::Real=600.0, min_depth::Real=10.0,
                      max_speed::Real=1.5, max_fix_delay::Real=900.0)
-    rows = NamedTuple[]
+    df = _empty_dac_df()
     for (yo, seg) in enumerate(_dr_segments(nav))
         core = _dac_segment(nav, seg; min_duration, min_depth, max_speed, max_fix_delay)
         core === nothing && continue
-        push!(rows, (yo = yo, core...))
+        push!(df, (yo = yo, core...))
     end
-    return DataFrame(rows)
+    return df
 end
+
+# Typed-empty DAC table: building the result by `push!` into this keeps the schema
+# when no segment qualifies, so downstream column access never hits a 0×0 frame.
+_empty_dac_df(; watertrack::Bool=false) = watertrack ?
+    DataFrame(yo=Int[], t_start=DateTime[], t_end=DateTime[], t_mid=DateTime[],
+              duration=Float64[], lon0=Float64[], lat0=Float64[], lon_dr=Float64[],
+              lat_dr=Float64[], lon_fix=Float64[], lat_fix=Float64[], maxdepth=Float64[],
+              u=Float64[], v=Float64[], u_ob=Float64[], v_ob=Float64[],
+              coverage=Float64[], method=Symbol[]) :
+    DataFrame(yo=Int[], t_start=DateTime[], t_end=DateTime[], t_mid=DateTime[],
+              duration=Float64[], lon0=Float64[], lat0=Float64[], lon_dr=Float64[],
+              lat_dr=Float64[], lon_fix=Float64[], lat_fix=Float64[], maxdepth=Float64[],
+              u=Float64[], v=Float64[])
 
 # Candidate submerged segments: maximal DeadReckoning == 1 blocks with a finite
 # final dead-reckoned position, bracketed by finite-position GPS fixes. Returns
@@ -225,7 +238,7 @@ function _dac_watertrack(nav::GliderNav, sources;
                          coverage_min::Real, dt_grid::Real, surface_depth::Real,
                          min_duration::Real, min_depth::Real, max_speed::Real,
                          max_fix_delay::Real)
-    rows = NamedTuple[]
+    df = _empty_dac_df(; watertrack=true)
     counts = Dict{Symbol,Int}()
     for (yo, seg) in enumerate(_dr_segments(nav))
         core = _dac_segment(nav, seg; min_duration, min_depth,
@@ -251,11 +264,10 @@ function _dac_watertrack(nav::GliderNav, sources;
         end
         (isfinite(u) && isfinite(v) && abs(u) <= max_speed && abs(v) <= max_speed) || continue
         counts[method] = get(counts, method, 0) + 1
-        push!(rows, merge((yo = yo,), core,
-                          (u = u, v = v, u_ob = core.u, v_ob = core.v,
-                           coverage = cov, method = method)))
+        push!(df, merge((yo = yo,), core,
+                        (u = u, v = v, u_ob = core.u, v_ob = core.v,
+                         coverage = cov, method = method)))
     end
-    df = DataFrame(rows)
     labelname = Dict(:adcp => "ADCP water-track", :flight => "flight-model")
     parts = ["$(get(counts, s.label, 0)) $(get(labelname, s.label, String(s.label)))"
              for s in sources]
@@ -302,6 +314,12 @@ function _interp_capped(tq::AbstractVector{<:Real}, ts::Vector{Float64},
     out = fill(NaN, length(tq))
     isempty(keep) && return out
     tk = ts[keep]; vk = vs[keep]
+    if length(tk) == 1                      # a lone finite sample: exact matches only
+        for (i, t) in enumerate(tq)
+            t == tk[1] && (out[i] = vk[1])
+        end
+        return out
+    end
     for (i, t) in enumerate(tq)
         (t < tk[1] || t > tk[end]) && continue
         j = clamp(searchsortedlast(tk, t), 1, length(tk) - 1)
@@ -322,7 +340,8 @@ per fix pair — a near-surface velocity constraint for the inverse solution.
 function surface_drift(nav::GliderNav; min_gap::Real=30.0, max_gap::Real=1200.0,
                        max_speed::Real=1.5)
     n = length(nav)
-    rows = NamedTuple[]
+    rows = DataFrame(t_mid=DateTime[], duration=Float64[], lon=Float64[],
+                     lat=Float64[], u=Float64[], v=Float64[])
     prev = 0
     for i in 1:n
         if nav.deadreckoning[i] == 1
@@ -347,5 +366,5 @@ function surface_drift(nav::GliderNav; min_gap::Real=30.0, max_gap::Real=1200.0,
             prev = i
         end
     end
-    return DataFrame(rows)
+    return rows
 end

@@ -671,6 +671,49 @@ end
         @test nrow(e11) == 0 && hasproperty(e11, :t_start)
     end
 
+    @testset "empty results keep their schema (2026-07-16 review)" begin
+        # every table-returning API must stay column-typed when nothing qualifies:
+        # a 0×0 DataFrame turns downstream column access into an ArgumentError
+        t0 = DateTime(2022, 11, 4)
+        tv = collect(t0 .+ Second.(10 .* (0:10)))
+        n = length(tv)
+        navsurf = GliderNav(tv, datetime2unix.(tv), fill(5.0, n), fill(69.5, n),
+            fill(90.0, n), zeros(n), zeros(n), zeros(n), fill(1.0, n),
+            fill(Int16(110), n), fill(Int8(0), n), fill(-1.0, n), DataFrame())
+        d1 = compute_dac(navsurf)                       # no submerged segment at all
+        @test nrow(d1) == 0 && eltype(d1.u) === Float64 && eltype(d1.yo) === Int
+        fl0 = flight_model(navsurf)
+        d2 = compute_dac(navsurf, fl0)
+        @test nrow(d2) == 0 && eltype(d2.method) === Symbol && eltype(d2.coverage) === Float64
+        @test names(d1) ⊆ names(d2)                     # ladder schema extends the plain one
+        sd = surface_drift(navsurf; min_gap=1e6)        # no pair passes the gate
+        @test nrow(sd) == 0 && eltype(sd.u) === Float64
+
+        cfg0 = AD2CPConfig(1, 1000.0, (47.5, 25.0, 47.5, 25.0), (0.0, -90.0, 180.0, 90.0),
+            fill(NaN, 4, 4), 2, 2.0, 0.7, :beam, 2.5, 0.0, 0.0, 38.0, Dict{String,Any}())
+        t1 = [t0]
+        anan = AD2CPData(t1, datetime2unix.(t1), [2.7, 4.7], fill(NaN32, 2, 4, 1),
+            fill(NaN32, 2, 4, 1), fill(NaN32, 2, 4, 1), [90f0], [0f0], [0f0], [10.0],
+            [7f0], [1500f0], fill(NaN32, 3, 1), fill(NaN32, 3, 1), [0.0], [0.0],
+            [1.0], cfg0, nothing)
+        cq = cell_quality(anan)                         # no finite corr/amp anywhere
+        @test nrow(cq) == 0 && eltype(cq.cell) === Int
+        tbl, ptp = compass_field_check(anan)            # no populated heading sector
+        @test nrow(tbl) == 0 && eltype(tbl.sector) === Int && isnan(ptp)
+
+        # _interp_capped with a lone finite source sample: exact match, no BoundsError
+        @test isequal(GliderADCP._interp_capped([100.0, 105.0], [100.0], [0.5];
+                                                max_gap=30.0), [0.5, NaN])
+        @test all(isnan, GliderADCP._interp_capped([100.0], [90.0, 100.0, 110.0],
+                                                   [NaN, NaN, NaN]; max_gap=30.0))
+        # ...and the same case reached through the flight model (one finite pitch)
+        navp = GliderNav(tv, datetime2unix.(tv), fill(5.0, n), fill(69.5, n),
+            fill(90.0, n), zeros(n), [i == 3 ? -20.0 : NaN for i in 1:n], zeros(n),
+            collect(range(0.0, 100.0; length=n)), fill(Int16(110), n),
+            fill(Int8(1), n), fill(-1.0, n), DataFrame())
+        @test flight_model(navp) isa GliderFlight
+    end
+
     @testset "end-to-end structure orientation (depth-varying flow through geometry)" begin
         # A pure baroclinic sign flip preserves depth means, dive/climb consistency and
         # DAC closure — so this dedicated test drives a depth-VARYING flow through the

@@ -21,7 +21,7 @@ function compass_field_check(a::AD2CPData; nsector::Int=12)
         sect[i] = isfinite(h) && isfinite(Bm[i]) ?
                   clamp(floor(Int, mod(h, 360) / (360 / nsector)) + 1, 1, nsector) : 0
     end
-    rows = NamedTuple[]
+    rows = DataFrame(sector=Int[], heading=Float64[], medB=Float64[], n=Int[])
     meds = Float64[]
     for s in 1:nsector
         idx = findall(==(s), sect)
@@ -30,7 +30,6 @@ function compass_field_check(a::AD2CPData; nsector::Int=12)
         push!(meds, m)
         push!(rows, (sector=s, heading=(s - 0.5) * 360 / nsector, medB=m, n=length(idx)))
     end
-    tbl = DataFrame(rows)
     ptp = isempty(meds) ? NaN : (maximum(meds) - minimum(meds)) / median(meds)
-    return tbl, ptp
+    return rows, ptp
 end

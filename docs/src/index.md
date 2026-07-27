@@ -19,16 +19,19 @@ Slocum dataset.
   (implemented, awaiting real-data validation).
 - **A validated common trunk**: sound-speed correction (TEOS-10), composable QC (the
   first cell is kept by default — validated clean for ≥ 0.5 m blanking configurations),
-  IGRF declination, exact 3-beam beam→XYZ→ENU transform, isobaric regridding, and a
-  per-mission range-dependent ("shear") bias calibration.
+  IGRF declination, exact 3-beam beam→XYZ→ENU transform, isobaric regridding, and
+  per-mission range-dependent bias calibration in both the horizontal
+  (`calibrate_shear_bias!`) and the vertical (`calibrate_vertical_bias!`).
 - **Both published velocity solutions** over identical inputs: the Visbeck-style
   least-squares **inverse** with DAC / bottom-track / smoothness constraints (the
   recommended product) and the lADCP-tradition **shear method**; plus flight-model-free
   **vertical water velocity**.
-- **References from navigation**: fix-to-fix depth-averaged currents, surface GPS
-  drift, and bottom-track over-ground velocities.
-- **Products**: depth-matched sections, provenance-rich netCDF export, Makie plotting
-  extension, DIVAnd mapping example.
+- **References from navigation**: fix-to-fix depth-averaged currents — water-tracked
+  from the ADCP by default, since the vehicle's onboard dead-reckoning runs 5–15 %
+  fast — with a built-in flight model as the ADCP-less fallback, plus surface GPS
+  drift and screened bottom-track over-ground velocities.
+- **Products**: depth-matched sections, provenance-rich netCDF export, and a Makie
+  plotting extension.
 
 ## Quick start
 
@@ -42,7 +45,8 @@ qc!(adcp)
 pings = process_pings(adcp; lat=69.5,
                       declination=magnetic_declination(nav, adcp.t))
 calibrate_shear_bias!(pings)
-dac   = compute_dac(nav, pings)                   # DAC, ADCP water-tracked
+dac   = compute_dac(nav, pings;                   # DAC, ADCP water-tracked,
+                    fallback=flight_model(nav))   #   flight model filling gaps
 btv   = bt_velocity(adcp)
 prof  = solve_inverse(pings, dac; bt=btv)         # yo × depth-bin velocity table
 sec   = grid_profiles(prof)
@@ -67,6 +71,8 @@ lives in the repository under `PLAN.md` and `docs/research/`.
 | dive vs climb consistency (inverse) | median \|Δ\| ≈ 2 cm/s |
 | shear vs inverse agreement (the health metric) | r = 0.90–0.98 at 3–6 cm/s rms |
 | shallow bins vs surface GPS drift (M38) | median \|Δ\| = 4 cm/s |
+| onboard dead-reckoning vs ADCP water track | ×1.05–×1.15 fast → nav-only DAC biased 2–4 cm/s anti-track (hence the water-track default) |
+| w: two estimators, and dive/climb symmetry after calibration | r = 0.985–0.996 at 0.9–1.6 mm/s; asymmetry ≈ 0 to the effective range |
 | realtime-onboard (`$PNOR`) inverse vs delayed | 3.2–5.1 mm/s rms, zero bias |
 | realtime-telemetered (`pld1.sub`) inverse vs delayed | 28–45 mm/s rms, \|bias\| ≤ 0.8 mm/s |
 | bottom track | screened by default: all of M38/M59's false locks rejected; M37/M48's genuine locks pass |

@@ -441,10 +441,8 @@ using CairoMakie                                # activates the Makie extension
 fig = plot_sections([(sec, :U, "U — inverse"), (sec, :V, "V — inverse")])
 ```
 
-For continuous (gap-bridged) sections, `examples/m38_divand_sections.jl` maps the
-profiles with DIVAnd and masks the analysis where the data give no support (clever
-poor man's error > 0.4) — no extrapolation below the sampled envelope. The same
-products exist mid-mission from the realtime-telemetered route — see the next section.
+The same products exist mid-mission from the realtime-telemetered route — see the
+next section.
 
 ## 10. The shore-side realtime product (realtime-telemetered)
 
@@ -476,6 +474,7 @@ qc!(tele)                                        # amp/corr/SNR screens no-op; c
 pings = process_pings(tele; lat=69.5, look=:down,
                       declination=magnetic_declination(nav, tele.t))
 calibrate_shear_bias!(pings)                     # works from the 6 transmitted cells
+calibrate_vertical_bias!(pings)                  # ...and so does the vertical one
 dac_rt = compute_dac(nav, pings; max_gap=90.0,   # water-track DAC works ashore too:
                      fallback=flight_model(nav)) # cells 3–6 sit in the 4–16 m window;
                                                  # max_gap spans the ~30 s cadence

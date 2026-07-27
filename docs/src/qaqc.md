@@ -278,6 +278,8 @@ M37's stream held 15 ensembles the instrument card did not retain.
 | water-track vs onboard DAC | med \|Δ\| ≈ 4 cm/s, along-track (all four) | ≫ 4 cm/s flags DR, compass, or ADCP trouble; ≈ 0 means the vendor fixed their flight model |
 | shear vs inverse agreement | r = 0.90–0.98, rms 3–6 cm/s | contamination anywhere in the chain — this is the check that exposed the false-BT defect |
 | surface drift vs shallowest bins | med \|Δ\| = 4 cm/s (M38) | near-surface problems |
+| w: `:direct` vs `:inverse` | r = 0.985–0.996, rms 0.9–1.6 mm/s | vertical-chain problems (the two routes share only the samples) |
+| w: dive/climb asymmetry after calibration | within a few mm/s to the effective range | uncorrected vertical beam bias (§3c) |
 | BT plausibility (if any locks survive) | implied depth vs bathymetry | false locks |
 
 The shear-vs-inverse comparison deserves emphasis: the two estimators fail

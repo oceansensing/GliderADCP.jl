@@ -277,7 +277,6 @@ examples/dac_methods.jl           DAC-ladder diagnostic: sections under all thre
                                   + differences vs the ADCP water track, both routes
 examples/w_diagnostics.jl         vertical-velocity artifacts: dive/climb asymmetry
                                   before/after calibration, inflection dependence
-examples/m38_divand_sections.jl   DIVAnd-mapped continuous sections
 examples/missions.jl              shared mission registry
 ```
 

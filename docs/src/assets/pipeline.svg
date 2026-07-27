@@ -40,7 +40,7 @@
     <rect x="20" y="216" width="600" height="72" rx="9" fill="#7d5ba6"/>
     <text x="320" y="239" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">qc! · soundspeed_correction · process_pings</text>
     <text x="320" y="258" text-anchor="middle" fill="#e9dff5" font-size="11.5">beam screening · TEOS-10 rescale · exact 3-beam beam→XYZ→ENU on isobars (IGRF)</text>
-    <text x="320" y="275" text-anchor="middle" fill="#e9dff5" font-size="11.5">calibrate_shear_bias! · bt_velocity (screened)  →  relative velocity + bottom track</text>
+    <text x="320" y="275" text-anchor="middle" fill="#e9dff5" font-size="11.5">calibrate_shear_bias! + calibrate_vertical_bias! · bt_velocity (screened)  →  relative velocity + BT</text>
 
     <rect x="660" y="216" width="280" height="72" rx="9" fill="#e9c46a"/>
     <text x="800" y="243" text-anchor="middle" fill="#3a2d09" font-size="14" font-weight="bold">compute_dac · flight_model</text>
@@ -64,8 +64,8 @@
 
     <rect x="650" y="340" width="290" height="96" rx="9" fill="#457b9d"/>
     <text x="795" y="364" text-anchor="middle" fill="#fff" font-size="14" font-weight="bold">solve_w</text>
-    <text x="795" y="384" text-anchor="middle" fill="#dcebf4" font-size="11.5">w = U_rel + dP/dt</text>
-    <text x="795" y="401" text-anchor="middle" fill="#dcebf4" font-size="11.5">flight-model-free</text>
+    <text x="795" y="382" text-anchor="middle" fill="#dcebf4" font-size="11.5">w = U_rel + dP/dt, flight-model-free</text>
+    <text x="795" y="399" text-anchor="middle" fill="#dcebf4" font-size="11.5">inflection-screened (w_min)</text>
     <text x="795" y="424" text-anchor="middle" fill="#fff" font-size="13" font-weight="bold">→ W</text>
   </g>
 

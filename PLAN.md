@@ -4,10 +4,11 @@
 into absolute ocean velocity profiles.**
 
 Status (2026-07-16): **all phases complete** (0–7) plus the §8a/§8b/§8c follow-up
-work — 448 tests, four validated missions (M37/M38/M48/M59), the three-tier
+work — 464 tests, four validated missions (M37/M38/M48/M59), the three-tier
 data-route taxonomy (delayed-mode / realtime-onboard / realtime-telemetered), the
-first-cell verdict (kept by default for ≥ 0.5 m blanking), and the water-track DAC
-ladder (the onboard flight model is out of the product loop). Released: **v0.2.0**,
+first-cell verdict (kept by default for ≥ 0.5 m blanking), the water-track DAC ladder
+(the onboard flight model is out of the product loop), and the vertical-bias
+calibration + inflection screen for w. Released: **v0.2.0**,
 archived on Zenodo (concept DOI 10.5281/zenodo.21345325). Remaining:
 General-registry registration (SeaExplorerIO.jl first), whenever desired.
 This document is kept as the design record; user-facing documentation lives in `docs/`
@@ -441,6 +442,17 @@ All six §8a tasks closed, then:
    "degrade loudly" contract enforced against corrupt input across the binary,
    `$PNOR`, gli and Slocum readers. No published result affected. Full list:
    validation doc 2026-07-15 hardening entry.
+5. **Vertical-velocity audit (2026-07-16).** The w product's *pitch* dependence,
+   never previously checked: two artifacts, both isolated by the dive/climb
+   symmetry the ocean cannot break. (a) A dive/climb asymmetry growing with range
+   (≈ 0 at the near cells → 8–27 mm/s at 24–30 m) = the vertical projection of the
+   range-dependent beam bias; new `calibrate_vertical_bias!` removes it (slope
+   1.3–2.3×10⁻⁴ → machine zero; w before/after r = 0.997–0.999, so bias not
+   signal; `p.U` only, horizontal products bit-identical). (b) A −4…−15 mm/s
+   unsteady-flight bias below |pitch| ≈ 6°, now masked by default (`w_min` on
+   `|glider_w|`) — per-ping only, mission-median w unchanged. Diagnostic:
+   `examples/w_diagnostics.jl`. Evidence: validation doc 2026-07-16 w entry,
+   QA/QC §3c.
 
 ## 9. Risks & open questions
 

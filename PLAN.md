@@ -8,7 +8,7 @@ work — 464 tests, four validated missions (M37/M38/M48/M59), the three-tier
 data-route taxonomy (delayed-mode / realtime-onboard / realtime-telemetered), the
 first-cell verdict (kept by default for ≥ 0.5 m blanking), the water-track DAC ladder
 (the onboard flight model is out of the product loop), and the vertical-bias
-calibration + inflection screen for w. Released: **v0.2.0**,
+calibration + inflection screen for w. Released: **v0.3.0**,
 archived on Zenodo (concept DOI 10.5281/zenodo.21345325). Remaining:
 General-registry registration (SeaExplorerIO.jl first), whenever desired.
 This document is kept as the design record; user-facing documentation lives in `docs/`

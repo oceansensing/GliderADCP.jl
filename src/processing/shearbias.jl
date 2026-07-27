@@ -145,6 +145,109 @@ function apply_shear_bias!(p::ProcessedPings, b; components::Symbol=:both)
 end
 
 """
+    vertical_bias(p::ProcessedPings; min_count=1000, w_min=0.05) -> NamedTuple
+
+Range-dependent bias of the **vertical** relative velocity, calibrated from the
+dive/climb antisymmetry. Returns `(offsets, bias, n_dive, n_climb, slope)`.
+
+The horizontal calibration ([`shear_bias`](@ref)) separates instrument from ocean
+using the track frame; the vertical component needs a different lever, because a
+vertical bias is not track-locked. The one the ocean cannot fake is **flight
+direction**: real ocean `w` (and its vertical shear) is identical on dives and
+climbs, while the instrument geometry — including the 3-beam selection, which
+flips at `pitch = 0` ([`select_beams`](@ref)) — is mirrored between them. So the
+*antisymmetric* half of the dive-minus-climb adjacent-pair differences is
+instrumental by construction, and the symmetric half (where real signal lives) is
+left untouched.
+
+Measured on the four reference missions: the dive/climb asymmetry of `w` is ≈ 0 at
+the nearest cells and grows monotonically with range to 8–27 mm/s at 24–30 m —
+the vertical projection of the same range-dependent beam bias `shear_bias`
+removes in the horizontal plane. Because pair differences determine only the
+*shape*, the profile is anchored at the nearest cell (`bias[1] = 0`), which is
+exactly where the measured asymmetry vanishes.
+
+Pings with `|glider_w| < w_min` (the inflection region) are excluded: their flight
+direction is ambiguous and their `w` is unsteady-flight contaminated.
+"""
+function vertical_bias(p::ProcessedPings; min_count::Int=1000, w_min::Real=0.05)
+    nk = length(p.offsets)
+    sd = zeros(nk - 1); sc = zeros(nk - 1)
+    nd = zeros(Int, nk - 1); nc = zeros(Int, nk - 1)
+    wg = glider_w(p)
+    for i in 1:length(p)
+        (isfinite(wg[i]) && abs(wg[i]) >= w_min) || continue
+        dive = wg[i] < 0                       # w_glider = −d(depth)/dt
+        for k in 1:nk-1
+            (isfinite(p.U[k, i]) && isfinite(p.U[k+1, i])) || continue
+            d = p.U[k+1, i] - p.U[k, i]
+            if dive
+                sd[k] += d; nd[k] += 1
+            else
+                sc[k] += d; nc[k] += 1
+            end
+        end
+    end
+    # antisymmetric half of the pair differences — population imbalance safe
+    δ = [(nd[k] >= min_count && nc[k] >= min_count) ?
+         (sd[k] / nd[k] - sc[k] / nc[k]) / 2 : 0.0 for k in 1:nk-1]
+    bias = vcat(0.0, cumsum(δ))                # anchored at the nearest cell
+    g = findall(isfinite, bias)
+    slope = length(g) > 3 ? cov(p.offsets[g], bias[g]) / var(p.offsets[g]) : NaN
+    return (offsets=copy(p.offsets), bias=bias, n_dive=nd, n_climb=nc, slope=slope)
+end
+
+"""
+    apply_vertical_bias!(p::ProcessedPings, b; w_min=0.05) -> p
+
+Subtract the calibrated vertical bias ([`vertical_bias`](@ref)) from `p.U`, with
+the sign of each ping's flight direction (`+b` on dives, `−b` on climbs). Unlike
+[`apply_shear_bias!`](@ref) the profile is **not** re-demeaned per ping: the
+antisymmetric part is instrumental in full, including its ping-mean component, and
+the estimator's anchor (no correction at the nearest cell) fixes the otherwise
+undetermined integration constant. Only `p.U` changes, so horizontal products —
+the inverse, the shear method and the DAC — are untouched by construction; this
+corrects the `w` products (and the vertical term of
+[`throughwater_velocity`](@ref), which feeds angle-of-attack measurement).
+"""
+function apply_vertical_bias!(p::ProcessedPings, b; w_min::Real=0.05)
+    nk = length(p.offsets)
+    length(b.bias) == nk || error("apply_vertical_bias!: offset grids differ")
+    bb = [isfinite(x) ? x : 0.0 for x in b.bias]
+    wg = glider_w(p)
+    for i in 1:length(p)
+        (isfinite(wg[i]) && abs(wg[i]) >= w_min) || continue
+        s = wg[i] < 0 ? 1.0 : -1.0
+        for k in 1:nk
+            isfinite(p.U[k, i]) || continue
+            p.U[k, i] -= s * bb[k]
+        end
+    end
+    return p
+end
+
+"""
+    calibrate_vertical_bias!(p::ProcessedPings; passes=2, kwargs...) -> Vector
+
+Iterated estimate-and-subtract of the vertical range-dependent bias
+([`vertical_bias`](@ref) / [`apply_vertical_bias!`](@ref)). Returns the fitted
+bias slope (s⁻¹) after each pass — the last value is the residual. Run it after
+[`calibrate_shear_bias!`](@ref); it affects the `w` products only.
+"""
+function calibrate_vertical_bias!(p::ProcessedPings; passes::Int=2,
+                                  w_min::Real=0.05, kwargs...)
+    slopes = Float64[]
+    for _ in 1:passes
+        b = vertical_bias(p; w_min, kwargs...)
+        push!(slopes, b.slope)
+        apply_vertical_bias!(p, b; w_min)
+    end
+    b = vertical_bias(p; w_min, kwargs...)
+    push!(slopes, b.slope)
+    return slopes
+end
+
+"""
     calibrate_shear_bias!(p::ProcessedPings; passes=3, kwargs...) -> Vector
 
 Iterated estimate-and-subtract of the range-dependent bias (partial-coverage pings make

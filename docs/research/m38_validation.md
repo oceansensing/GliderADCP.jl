@@ -818,3 +818,66 @@ history rather than shipped API; the pipeline SVG still showed the DAC as
 Verified unchanged on real data after the refactor: M38 delayed-mode ladder
 126 ADCP / 64 flight-model / 0 onboard, shear-vs-inverse r = 0.983/0.984,
 DAC closure 1 mm/s.
+
+## Vertical velocity audited (2026-07-16): two artifacts found, both corrected
+
+Prompted by DG's question about inflection-point edge cases and the w product.
+The two w estimators had been shown to corroborate each other (Task 4) but the
+product's *pitch dependence* had never been audited. Testing it needs a
+question the ocean cannot answer differently on dives and climbs — the ocean
+does not know which way the glider points, so any dive/climb difference is
+instrumental by construction.
+
+**Artifact A — dive/climb asymmetry growing with range.** Climb-median w sits
+below dive-median w on every mission: M37 −5.0, M38 −4.2, M48 −6.5, M59
+−2.7 mm/s, and it survives restriction to steady flight (|pitch| ≥ 14°), so it
+is not an inflection effect. Resolved against cell offset it is ≈ 0 at the
+nearest cells and grows monotonically to −8.5 (M59), −10.6 (M38), −22.9 (M48),
+−27.3 (M37) mm/s at 24–30 m. That range dependence identifies the mechanism and
+kills the two obvious alternatives: a mis-scaled `w_glider` term would be
+range-*independent* (one number per ping), and hull flow disturbance would be
+strongest *at* the transducer and decay outward — the opposite of what is seen.
+What grows with along-beam range and mirrors with pitch is the **vertical
+projection of the range-dependent beam bias** that `calibrate_shear_bias!`
+already removes in the horizontal plane.
+
+`vertical_bias`/`apply_vertical_bias!`/`calibrate_vertical_bias!` calibrate it
+from the antisymmetric half of the dive-minus-climb adjacent-pair differences
+(the symmetric half, where real ocean w and its shear live, is untouched).
+Because pair differences determine only the profile *shape*, it is anchored at
+the nearest cell — justified by the measurement, since the asymmetry vanishes
+there. Result on the four missions: bias slope 1.3–2.3×10⁻⁴ → machine zero
+(~10⁻¹⁹), asymmetry at 18–24 m −9.7→−2.7 (M38), −13.2→−2.5 (M48), −5.2→+1.3
+(M59), −10.6→+0.1 (M37) mm/s. It removes bias without eating signal: w before
+vs after correlates at r = 0.997–0.999 with median shift ≤ 0.07 mm/s. Only
+`p.U` is modified, so the inverse, shear method and DAC are unchanged — verified
+by the mission health metrics being bit-identical after the change.
+
+Limits, recorded: cells beyond ~20 m keep a residual (−11 to −16 mm/s on
+M37/M48) because their dive/climb pair counts fall under `min_count` — from
+791/713 at 21 m to zero by 28 m. Those are the same cells that lie past the
+~15–17 m effective range (QA/QC §2), so the calibration declining to fit them
+is the correct behavior, not a gap to close by lowering the threshold.
+
+**Artifact B — a downward bias approaching inflection.** Below |pitch| ≈ 6°,
+median w falls to −3.8 (M37), −5.7 (M38), −15.2 (M48), −14.9 (M59) mm/s against
+a ~1.5 mm/s steady baseline. The cause is unsteady flight, not geometry: the
+vertical acceleration |dw_g/dt| among the pings that still yield w at depth runs
+6× (M37), 10× (M38), 27× (M59) and 44× (M48) its steady value, and the bias
+ranks with it — `glider_w`'s centered difference cannot track dP/dt through the
+turn while the steady-geometry assumption also fails. `vertical_velocity` and
+`solve_w` now mask it by default (`w_min = 0.05` m/s on `|glider_w|`), which
+cuts the contaminated population hard (M48 163 → 4 pings at depth; M38's
+low-pitch median −5.1 → −1.7 mm/s).
+
+**Honest scope of Artifact B:** the screen leaves mission-median w *unchanged*
+(−0.0020/−0.0012/−0.0010/−0.0024 m/s at every threshold tested, 0.2–0.5 % of
+samples) — it is a per-ping defect, relevant to event- and wave-scale work, not
+to section means. Recorded so the screen is not later mistaken for a
+product-level correction.
+
+Diagnostic: `examples/w_diagnostics.jl` → `w_quality_diagnostics.png`
+(before/after asymmetry vs range; raw pitch dependence). Tests: a synthetic yo
+with zero ocean w and a known injected antisymmetric range-growing bias, which
+the calibration recovers to 1e-6 and removes to 1e-5, plus the screen's
+behavior at an inflection ping (464 total).

@@ -671,6 +671,71 @@ end
         @test nrow(e11) == 0 && hasproperty(e11, :t_start)
     end
 
+    @testset "vertical bias calibration + inflection screen" begin
+        # Synthetic yo with ZERO ocean w and a known antisymmetric, range-growing
+        # vertical bias: w_measured = U + w_glider must come out as ±B(k) on
+        # dive/climb, and the calibration must recover and remove it.
+        t0 = DateTime(2022, 11, 4)
+        nt = 240
+        dt = 2.0
+        times = t0 .+ Second.(round.(Int, dt .* (0:nt-1)))
+        half = nt ÷ 2
+        wg_true = 0.10                                   # m/s vertical speed
+        depth = [i <= half ? 10.0 + wg_true * dt * (i - 1) :
+                 10.0 + wg_true * dt * (2half - i + 1) for i in 1:nt]
+        offsets = collect(2.0:2.0:20.0)
+        nk = length(offsets)
+        c = 5e-4                                          # 0.5 mm/s per m of range
+        B = [c * (o - offsets[1]) for o in offsets]       # anchored at cell 1
+        U = fill(NaN, nk, nt)
+        for i in 1:nt
+            dive = i <= half
+            wg = dive ? -wg_true : +wg_true               # w_glider = −d(depth)/dt
+            s = dive ? 1.0 : -1.0
+            for k in 1:nk
+                U[k, i] = -wg + s * B[k]                  # ocean w ≡ 0, plus the bias
+            end
+        end
+        pp = ProcessedPings(collect(times), datetime2unix.(times), depth,
+            fill(90.0, nt), offsets, zeros(nk, nt), zeros(nk, nt), U,
+            offsets .+ depth', :down, fill((1, 2, 4), nt))
+
+        wc = vertical_velocity(pp; w_min=0.0)
+        mid = 30:100                                      # solidly inside the dive
+        @test median(filter(isfinite, wc[end, mid])) ≈ B[end] atol = 1e-5
+        @test median(filter(isfinite, wc[1, mid])) ≈ 0.0 atol = 1e-5   # anchor cell
+
+        b = vertical_bias(pp; min_count=10, w_min=0.05)
+        @test b.bias ≈ B atol = 1e-6                      # recovered shape + anchor
+        @test b.slope ≈ c atol = 1e-6
+        @test all(b.n_dive[1:end] .> 10) && all(b.n_climb[1:end] .> 10)
+
+        sl = calibrate_vertical_bias!(pp; passes=1, min_count=10, w_min=0.05)
+        @test abs(sl[end]) < 1e-12                        # residual slope at zero
+        wc2 = vertical_velocity(pp; w_min=0.0)
+        dive_i = [i for i in 2:half-1]
+        climb_i = [i for i in half+2:nt-1]
+        for k in (1, nk ÷ 2, nk)                          # ocean w ≡ 0 recovered
+            @test median(filter(isfinite, wc2[k, dive_i])) ≈ 0.0 atol = 1e-5
+            @test median(filter(isfinite, wc2[k, climb_i])) ≈ 0.0 atol = 1e-5
+        end
+        # horizontal components are untouched by construction
+        @test all(iszero, pp.E) && all(iszero, pp.N)
+
+        # inflection screen: a slow-flight ping is masked, a steady one is not
+        depth2 = copy(depth)
+        depth2[50] = depth[49] + 0.002                    # near-stationary sample
+        depth2[51] = depth2[50] + 0.002
+        pp2 = ProcessedPings(collect(times), datetime2unix.(times), depth2,
+            fill(90.0, nt), offsets, zeros(nk, nt), zeros(nk, nt), copy(U),
+            offsets .+ depth2', :down, fill((1, 2, 4), nt))
+        w_screened = vertical_velocity(pp2; w_min=0.05)
+        w_open = vertical_velocity(pp2; w_min=0.0)
+        @test all(isnan, w_screened[:, 50])               # inflection ping dropped
+        @test any(isfinite, w_open[:, 50])                # ...only because of w_min
+        @test all(isfinite, w_screened[:, 30])            # steady flight kept
+    end
+
     @testset "empty results keep their schema (2026-07-16 review)" begin
         # every table-returning API must stay column-typed when nothing qualifies:
         # a 0×0 DataFrame turns downstream column access into an ArgumentError

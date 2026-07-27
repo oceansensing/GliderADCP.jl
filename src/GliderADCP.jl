@@ -61,6 +61,7 @@ export magnetic_declination, grid_profiles, export_sections
 export load_pnor, load_pld_adcp, slocum_nav, dac_from_slocum, time_in_bin, plot_sections
 export read_ad2cp
 export shear_bias, apply_shear_bias!, calibrate_shear_bias!
+export vertical_bias, apply_vertical_bias!, calibrate_vertical_bias!
 export vertical_velocity, glider_w, solve_w, compass_field_check
 export coverage, data_gaps, missing_segments
 

@@ -286,8 +286,39 @@ drift = surface_drift(nav)                    # near-surface constraint / valida
 
 inv = solve_inverse(pings, dac; bt=btv)       # the reference product
 shr = solve_shear(pings, dac)                 # the corrected second opinion
+calibrate_vertical_bias!(pings)               # w only: removes dive/climb asymmetry
 w   = vertical_velocity(pings)                # w = U_rel + dP/dt, flight-model-free
 ```
+
+!!! note "Vertical velocity has two systematic artifacts — both correctable"
+    `w = U_rel + w_glider` needs no flight model, but it carries two biases that
+    the horizontal chain does not, both measured on all four reference missions:
+
+    **1. A dive/climb asymmetry that grows with range.** Climb-median `w` sits
+    2.7–6.5 mm/s below dive-median `w`; resolved against cell offset the
+    difference is ≈ 0 at the nearest cells and reaches 8–27 mm/s at 24–30 m. The
+    ocean cannot know which way the glider points, so this is instrumental — it
+    is the *vertical* projection of the same range-dependent beam bias
+    [`calibrate_shear_bias!`](@ref) removes in the horizontal plane.
+    [`calibrate_vertical_bias!`](@ref) calibrates it from the dive/climb
+    antisymmetry (real ocean `w` is symmetric between them by construction, so
+    only the instrument survives the difference) and anchors the profile at the
+    nearest cell, where the measured asymmetry vanishes. It drives the residual
+    slope to machine zero and leaves the product essentially intact
+    (r = 0.997–0.999 before/after, median shift ≤ 0.07 mm/s) — it removes a bias,
+    not signal. Cells beyond ~20 m keep a residual: there the dive/climb pair
+    counts fall under `min_count`, which is also past the ~15–17 m effective
+    range, so those cells are the ones to distrust anyway.
+
+    **2. A negative bias approaching inflection.** Below |pitch| ≈ 6° the median
+    `w` falls to −4…−15 mm/s against a ~1.5 mm/s baseline: the steady-flight
+    geometry breaks and the centered difference cannot track `dP/dt` through the
+    turn (the vertical acceleration there runs 6–44× its steady value). Both
+    `vertical_velocity` and `solve_w` now mask that region by default via
+    `w_min = 0.05` m/s on `|w_glider|`. Be aware of the honest scope: this costs
+    0.2–0.5 % of samples and leaves mission-median `w` **unchanged** — it is a
+    per-ping defect, so it matters for event- and wave-scale work, not for
+    section means.
 
 !!! warning "The onboard dead-reckoning flight model is not to be trusted"
     The nav-only `compute_dac(nav)` inherits ALSEAMAR's onboard flight model: while

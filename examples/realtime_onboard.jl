@@ -54,6 +54,7 @@ function compare_mission(m)
         qc!(a)
         p = process_pings(a; lat=lat, look=look, declination=magnetic_declination(nav, a.t))
         calibrate_shear_bias!(p)
+        calibrate_vertical_bias!(p)              # w is compared below — calibrate both
         procs[lab] = p
     end
     # one DAC for both routes (water-tracked from the delayed reference pings,

@@ -100,7 +100,10 @@ Independent layers, each with a small, testable surface. Every function below is
 - **`solve_shear(pings, dac)`** — the shear method, retained as an independent second
   opinion (`solve_shear_profile` / `inverse_shear` expose the shear content itself).
 - **`solve_w` / `vertical_velocity`** — flight-model-free vertical water velocity
-  (`w = U_rel + dP/dt`), two ways (direct and pressure-anchored).
+  (`w = U_rel + dP/dt`), two ways (direct and pressure-anchored). The inflection
+  region is masked by default (`w_min`), and `calibrate_vertical_bias!` removes the
+  dive/climb asymmetry — the vertical projection of the range-dependent beam bias,
+  reaching 1–3 cm/s in the outer cells if left uncorrected.
 
 **Products & data QA**
 - **`grid_profiles`**, **`export_sections`** (provenance netCDF), **`plot_sections`**
@@ -157,7 +160,7 @@ nav = load_seaexplorer_nav(["delayed/nav/logs", "glimpse"]; stream = "38.gli.sub
 
 ## Validation
 
-Seven independent lines, all in the test suite (448 tests) or scripted, with gated
+Seven independent lines, all in the test suite (464 tests) or scripted, with gated
 acceptance tests that run on real missions when the data is present.
 
 1. **Reference-implementation parity** — the beam→XYZ transform reproduces `gliderad2cp`
@@ -272,6 +275,8 @@ examples/realtime_onboard.jl      realtime-onboard ($PNOR) vs delayed-mode compa
 examples/realtime_telemetered.jl  shore-side realtime product + ALSEAMAR comparison
 examples/dac_methods.jl           DAC-ladder diagnostic: sections under all three DACs
                                   + differences vs the ADCP water track, both routes
+examples/w_diagnostics.jl         vertical-velocity artifacts: dive/climb asymmetry
+                                  before/after calibration, inflection dependence
 examples/m38_divand_sections.jl   DIVAnd-mapped continuous sections
 examples/missions.jl              shared mission registry
 ```

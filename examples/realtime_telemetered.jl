@@ -75,6 +75,7 @@ for key in selected_missions()
     qc!(tele)
     p_t = process_pings(tele; lat=lat, look=:down, declination=magnetic_declination(nav, tele.t))
     calibrate_shear_bias!(p_t)
+    calibrate_vertical_bias!(p_t)                # both routes calibrated the same way
     # water-track DAC from the telemetered pings themselves — ashore mid-mission even
     # the DAC is free of the onboard flight model (max_gap spans the ~30 s cadence;
     # our own flight model fills instrument-off gaps); shared with the delayed
@@ -91,6 +92,8 @@ for key in selected_missions()
     qc!(adcp)
     p_d = process_pings(adcp; lat=lat, declination=magnetic_declination(nav, adcp.t))
     calibrate_shear_bias!(p_d)
+    calibrate_vertical_bias!(p_d)                # w comparison below needs both routes
+
     inv_d = solve_inverse(p_d, dac)
     w_d = solve_w(p_d, dac)
 

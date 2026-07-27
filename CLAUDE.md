@@ -19,7 +19,7 @@ extension; not yet public).
 ## Commands
 
 ```bash
-# tests (448; gated acceptance tests auto-skip when local mission data is absent)
+# tests (464; gated acceptance tests auto-skip when local mission data is absent)
 ~/.juliaup/bin/julia +1.13 --project=. -e 'using Pkg; Pkg.test()'
 
 # docs (Documenter; SeaExplorerIO is dev'd into docs/Manifest)
@@ -32,6 +32,7 @@ JULIA_LOAD_PATH="@:@ocean:@stdlib" ~/.juliaup/bin/julia +1.13 --project=. exampl
 JULIA_LOAD_PATH="@:@ocean:@stdlib" ~/.juliaup/bin/julia +1.13 --project=. examples/realtime_onboard.jl
 JULIA_LOAD_PATH="@:@ocean:@stdlib" ~/.juliaup/bin/julia +1.13 --project=. examples/realtime_telemetered.jl
 JULIA_LOAD_PATH="@:@ocean:@stdlib" ~/.juliaup/bin/julia +1.13 --project=. examples/dac_methods.jl
+JULIA_LOAD_PATH="@:@ocean:@stdlib" ~/.juliaup/bin/julia +1.13 --project=. examples/w_diagnostics.jl
 ```
 
 Reference mission data lives under
@@ -78,6 +79,16 @@ placeholder files (read as zero bytes; loaders warn `no rows parsed`).
   heading IS magnetic and `process_pings` adds declination there.
 - **Shear-bias calibration is per-mission** (`calibrate_shear_bias!`): the slope is
   configuration-dependent (−4.7×10⁻⁴ … −5×10⁻⁵ s⁻¹ across 2022–2024), never hard-code.
+- **w has its own range-dependent bias** (`calibrate_vertical_bias!`, run after the
+  horizontal one; slope 1.3–2.3×10⁻⁴ s⁻¹ across missions): the vertical projection of
+  the same beam bias, visible as a dive/climb asymmetry growing from ~0 at the near
+  cells to 8–27 mm/s at 24–30 m. Calibrated from the dive/climb antisymmetry (the
+  ocean is symmetric between them), anchored at the near cell; touches `p.U` only, so
+  horizontal products are unchanged. Cells past ~20 m stay uncorrected for lack of
+  pair counts — they are also past the effective range. The inflection screen
+  (`w_min=0.05` on `|glider_w|`, default in `vertical_velocity`/`solve_w`) removes a
+  −4…−15 mm/s unsteady-flight bias but does **not** move mission-median w — per-ping
+  defect, not product-level. Evidence: validation doc 2026-07-16 w entry, QA/QC §3c.
 - **Telemetered w: events yes, statistics no.** The 30-s subsampling aliases texture
   (r = 0.66–0.84 vs delayed) but large coherent vertical-velocity events survive —
   the per-mission diagnostic `M*_telemetered_w_sections.png` (from

@@ -129,6 +129,42 @@ depth-uniform stripes, pale for the flight model, track-correlated at
 2–5 cm/s for the onboard DR (on M59 a two-week +4–5 cm/s block while the
 glider pointed upstream into the Gulf Stream).
 
+## 3c. Vertical velocity: two artifacts, both correctable
+
+`w = U_rel + w_glider` needs no flight model, and its two independent
+estimators agree tightly (`solve_w` `:direct` vs `:inverse`: r = 0.985–0.996,
+rms 0.9–1.6 mm/s on the four missions, mission-median w −1…−2 mm/s against an
+expected ~0). Two systematic biases sit underneath that agreement, both found
+by asking a question the ocean cannot answer differently on dives and climbs.
+
+**(a) Dive/climb asymmetry, growing with range.** Climb-median w is
+2.7–6.5 mm/s *below* dive-median w on every mission — and resolved against
+cell offset the gap is ≈ 0 at the nearest cells, reaching 8–27 mm/s at
+24–30 m. That range dependence is what identifies the mechanism: a mis-scaled
+`w_glider` would be range-independent (one number per ping) and hull flow
+disturbance would be *strongest* at the transducer and decay outward. What
+grows with along-beam range and mirrors with pitch is the **vertical
+projection of the range-dependent beam bias** — the same error
+`calibrate_shear_bias!` removes horizontally.
+[`calibrate_vertical_bias!`](@ref) fixes it, calibrating from the dive/climb
+antisymmetry and anchoring at the nearest cell.
+
+**(b) A downward bias approaching inflection.** Below |pitch| ≈ 6°, median w
+falls to −4…−15 mm/s (worst on M48/M59, whose vertical acceleration through
+the turn runs 27–44× the steady value): unsteady flight, where the geometry's
+steady assumption fails and the centered difference cannot follow `dP/dt`.
+`vertical_velocity`/`solve_w` mask it by default (`w_min = 0.05` m/s on
+`|w_glider|`).
+
+**Check:** after calibrating, the dive/climb asymmetry per offset bin should be
+within a few mm/s out to the effective range (log it per mission — the
+diagnostic figure is `w_quality_diagnostics.png` from
+`examples/w_diagnostics.jl`). Two scope notes to keep honest: the calibration
+cannot reach cells beyond ~20 m (dive/climb pair counts fall below
+`min_count` there — the same cells that are past the effective range), and the
+inflection screen leaves mission-median w **unchanged**, so it matters for
+per-ping/event work rather than section means.
+
 ## 4. Range-dependent shear bias: measure per mission (`calibrate_shear_bias!`)
 
 All missions carry a range-dependent along-track bias in the beam samples, but

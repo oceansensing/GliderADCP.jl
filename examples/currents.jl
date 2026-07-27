@@ -71,12 +71,14 @@ function process(m)
     qstats = qc!(adcp)
     @info "    rejected $(round(100qstats.total, digits=1))% of beam samples"
 
-    @info "4/7 declination (IGRF) + ENU pings + shear-bias calibration"
+    @info "4/7 declination (IGRF) + ENU pings + bias calibration (horizontal + vertical)"
     decl = magnetic_declination(nav, adcp.t)
     @info "    declination $(round(nanminimum(decl), digits=2))..$(round(nanmaximum(decl), digits=2)) °E"
     pings = process_pings(adcp; lat=lat, declination=decl)
     bslopes = calibrate_shear_bias!(pings)
     @info "    shear-bias slope $(round(bslopes[1], sigdigits=3)) s⁻¹ → residual $(round(bslopes[end], sigdigits=2))"
+    vslopes = calibrate_vertical_bias!(pings)     # w products only (dive/climb asymmetry)
+    @info "    vertical-bias slope $(round(vslopes[1], sigdigits=3)) s⁻¹ → residual $(round(vslopes[end], sigdigits=2))"
 
     @info "5/7 DAC (water-track ladder) + bottom track (screened) + velocity solutions"
     # ADCP water track → flight model (duty-cycle gaps) → onboard DR (last resort)

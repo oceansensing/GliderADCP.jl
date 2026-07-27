@@ -25,18 +25,35 @@ function glider_w(p::ProcessedPings; max_gap::Real=60.0)
 end
 
 """
-    vertical_velocity(p::ProcessedPings; max_gap=60.0) -> Matrix
+    vertical_velocity(p::ProcessedPings; max_gap=60.0, w_min=0.05) -> Matrix
 
 Absolute vertical water velocity (m/s, positive up) on the ping × offset grid:
 `w = U_rel + w_glider`, with `w_glider = −d(depth)/dt` by centered differences
 (ping gaps larger than `max_gap` seconds yield NaN).
+
+Pings whose `|w_glider|` is below `w_min` — the **inflection region**, where the
+glider pitches through horizontal — are masked. The steady-flight assumptions
+behind the geometry break there and the centered difference cannot track a rapidly
+changing `dP/dt`: on the reference missions those pings carry a systematic
+downward bias of 4–15 mm/s against a ~1.5 mm/s baseline. The cost is small
+(0.2–0.5 % of usable samples) and mission-median `w` is unchanged — the bias is a
+per-ping defect rather than a product-level one, so this matters most for
+ping-scale work (events, wave-band `w`). Pass `w_min = 0` to keep everything.
 """
-vertical_velocity(p::ProcessedPings; max_gap::Real=60.0) = p.U .+ glider_w(p; max_gap)'
+function vertical_velocity(p::ProcessedPings; max_gap::Real=60.0, w_min::Real=0.05)
+    wg = glider_w(p; max_gap)
+    if w_min > 0
+        for i in eachindex(wg)
+            (isfinite(wg[i]) && abs(wg[i]) >= w_min) || (wg[i] = NaN)
+        end
+    end
+    return p.U .+ wg'
+end
 
 """
     solve_w(pings::ProcessedPings, segments::DataFrame;
             method=:direct, dz=10.0, min_bin_obs=4, min_pings=30,
-            wanchor=5.0, wsmooth=1.0) -> DataFrame
+            wanchor=5.0, wsmooth=1.0, w_min=0.05) -> DataFrame
 
 Vertical-water-velocity profiles per segment, by either of two methods over the same
 samples (`segments` needs `yo, t_start, t_end, t_mid`; a [`compute_dac`](@ref) table
@@ -49,13 +66,24 @@ works):
     (weight `wanchor`) to the pressure-derived `−d(depth)/dt` — the vertical analog of
     a bottom-track constraint — plus `wsmooth` second-difference smoothing.
 
+Both routes mask the inflection region via `w_min` (see
+[`vertical_velocity`](@ref)). For the cleanest `w`, calibrate the vertical
+range-dependent bias first — [`calibrate_vertical_bias!`](@ref) — which removes
+the dive/climb asymmetry that otherwise reaches ~1–3 cm/s in the outer cells.
+
 Returns `yo, t_mid, z, w, nobs` (w in m/s, positive up).
 """
 function solve_w(p::ProcessedPings, segments::DataFrame;
                  method::Symbol=:direct, dz::Real=10.0, min_bin_obs::Int=4,
-                 min_pings::Int=30, wanchor::Real=5.0, wsmooth::Real=1.0)
+                 min_pings::Int=30, wanchor::Real=5.0, wsmooth::Real=1.0,
+                 w_min::Real=0.05)
     out = DataFrame(yo=Int[], t_mid=DateTime[], z=Float64[], w=Float64[], nobs=Int[])
     wg = glider_w(p)
+    if w_min > 0                                  # drop the inflection region
+        for i in eachindex(wg)
+            (isfinite(wg[i]) && abs(wg[i]) >= w_min) || (wg[i] = NaN)
+        end
+    end
     wabs = method === :direct ? p.U .+ wg' : nothing
     for row in eachrow(segments)
         idx = segment_indices(p, row.t_start, row.t_end)

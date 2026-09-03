@@ -88,8 +88,10 @@ Independent layers, each with a small, testable surface. Every function below is
   water) from pitch and pressure alone, with per-mission calibration against the
   ADCP (`measure_aoa` + `fit_flightparams`). Powers the ADCP-less water-track DAC
   (`compute_dac(nav, flight_model(nav))` — ~3× closer to the ADCP water track
-  than the onboard model, with no systematic bias). A deliberate twin of
-  GliderTurbulence.jl's flight model, so each package stands alone.
+  than the onboard model, with no systematic bias). Polars are `FlightParams`
+  (default: the pooled SEA064 calibration; presets for the published SeaExplorer and
+  Slocum polars). A deliberate twin of GliderTurbulence.jl's flight model, so each
+  package stands alone.
 - **`surface_drift`** — near-surface GPS drift, a constraint and a cross-check.
 - **`bt_velocity` / `bt_valid`** — bottom-track over-ground velocity, screened by
   default for false near-field locks (see Validation §6).

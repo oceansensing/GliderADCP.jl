@@ -348,11 +348,23 @@ onboard dead-reckoning by ~3× (and removes its systematic anti-track bias):
 dac = compute_dac(nav, flight_model(nav))     # flight-model water-track DAC
 ```
 
-[`flight_model`](@ref) needs only nav pitch and depth. Its polar defaults to the
-pooled SEA064 calibration; on any mission that does carry an ADCP,
-[`measure_aoa`](@ref) + [`fit_flightparams`](@ref) recalibrate it per glider —
-GliderADCP carries the full flight-model kit natively (a deliberate twin of
-GliderTurbulence.jl's, so each package stands alone).
+[`flight_model`](@ref) needs only nav pitch and depth and returns a
+[`GliderFlight`](@ref) (per-sample `w`, angle of attack, glide angle and speed `U`,
+NaN where masked). Its polar is a [`FlightParams`](@ref) and defaults to the pooled
+SEA064 calibration (`FLIGHT_SEA064`); the shipped presets are
+`FLIGHT_SEAEXPLORER_TANAKA22` (the published SeaExplorer polar — a different airframe
+configuration), `FLIGHT_SLOCUM_TANAKA22` and `FLIGHT_SLOCUM_MEA10`, and only the
+ratios `C_D0/a`, `C_D1/a` matter. Pass one explicitly for a different vehicle:
+
+```julia
+fl = flight_model(nav; params=FLIGHT_SLOCUM_MEA10)
+```
+
+On any mission that does carry an ADCP, [`measure_aoa`](@ref) +
+[`fit_flightparams`](@ref) recalibrate the polar per glider
+(`flight_model(nav; params=fit.params)`); [`solve_aoa`](@ref) exposes the polar
+solution itself. GliderADCP carries the full flight-model kit natively (a deliberate
+twin of GliderTurbulence.jl's, so each package stands alone).
 
 !!! warning "False bottom-track locks"
     Glider BT records can be dominated by **false locks on near-field/water-borne
@@ -385,7 +397,10 @@ and the reason the lADCP community moved to inversions. The cleanest demonstrati
 the realtime-onboard comparison: given identically quantized input samples, the inverse's
 error stays a flat 4–5 mm/s to 1000 m while the shear method's grows with depth to
 2–3 cm/s, on all four validated missions. Use the shear solution as an independent
-cross-check, reading its per-yo wiggles with the drift envelope in mind.
+cross-check, reading its per-yo wiggles with the drift envelope in mind. Its knobs live
+in [`ShearOptions`](@ref) (bin size `dz`, the `:median`/`:mean` bin statistic,
+`min_bin_obs`, `min_pings`, and `:timeweighted` vs `:simple` DAC referencing), the
+shear-method counterpart of [`InverseOptions`](@ref).
 
 !!! note "Which method?"
     The inverse is this package's production method: it localizes sample errors that

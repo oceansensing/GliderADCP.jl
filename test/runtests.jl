@@ -13,6 +13,9 @@ const M38_NC = joinpath(M38_DIR, "ad2cp/102381_sea064_M38/sea064_M38.ad2cp.00000
 const M38_NAV = joinpath(M38_DIR, "delayed/nav/logs")
 const M38_PLD = joinpath(M38_DIR, "delayed/pld1/logs")
 const M48_NC = "/Users/gong/GitHub/jlglider/ad2cp/data/sea064_M48.ad2cp.00000.nc"
+const M58_DIR = "/Users/gong/oceansensing Dropbox/C2PO/glider/gliderData/sea064-20240709-nesma-passengers-complete"
+const M58_BIN = joinpath(M58_DIR, "ad2cp/sea064_M58.ad2cp")
+const M58_NC = joinpath(M58_DIR, "ad2cp/sea064_M58.ad2cp.00000.nc")
 
 "Write a miniature MIDAS-style AD2CP netCDF (Config + Data/Average + Data/AverageBT)."
 function write_synthetic_midas(path; nt=6, nc=3)
@@ -1111,6 +1114,30 @@ end
             @test length(a2) == length(a)
             @info "native .ad2cp reader ≡ MIDAS netCDF: bit-identical on M38 " *
                   "($(length(a)) ensembles + $(length(a.bt)) BT records)"
+        end
+    end
+
+    if isfile(M58_BIN) && isfile(M58_NC)
+        @testset "M58 acceptance: fifth mission — native binary ≡ MIDAS netCDF" begin
+            # the 2024 Gulf Stream deployment two weeks before M59; both delayed-mode
+            # inputs exist, so the parity claim extends to four missions
+            a = read_ad2cp(M58_BIN)
+            b = load_ad2cp(M58_NC)
+            @test length(a) == length(b) == 58_814
+            @test a.time == b.time
+            same32(x, y) = (d = filter(isfinite, vec(x .- y)); isempty(d) ? 0.0 : maximum(abs.(d)))
+            @test same32(a.vel, b.vel) == 0
+            @test same32(a.amp, b.amp) == 0
+            @test same32(a.corr, b.corr) == 0
+            @test same32(a.heading, b.heading) == 0
+            @test a.config.serial == 102381
+            @test ncells(a) == 15
+            # configured salinity differs from M38 (35 vs 38): the sound-speed chain
+            # must take it from the file, never assume the reference mission's value
+            @test a.config.salinity_setting == 35.0
+            @test length(a.bt) == length(b.bt)
+            @info "M58: native .ad2cp ≡ MIDAS netCDF ($(length(a)) ensembles), " *
+                  "salinity setting $(a.config.salinity_setting)"
         end
     end
 

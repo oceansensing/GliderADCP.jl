@@ -108,7 +108,7 @@ for key in keys_
 end
 
 labels = [MISSIONS[k].label for k in keys_]
-cols = [:steelblue, :firebrick, :seagreen, :darkorange]
+cols = [:steelblue, :firebrick, :seagreen, :purple, :darkorange]   # one per registry mission
 offx = [(lo + hi) / 2 for (lo, hi) in OFFB]
 
 fig = Figure(size=(1500, 900))

@@ -30,7 +30,7 @@
 # across time gaps.
 #
 # In this package the flight model is the middle rung of the DAC ladder
-# (ADCP water track → flight model → onboard DR): on the four validated
+# (ADCP water track → flight model → onboard DR): on the five validated
 # missions its dead-reckoning lands within ~1.4 cm/s median of the ADCP water
 # track with no systematic along-track bias, while the onboard model is
 # 4–6.5 cm/s off and systematically anti-track (validation doc 2026-07-15).
@@ -44,8 +44,8 @@ are the pooled AD2CP calibration of SEA064 over three missions (2022 Jan
 Mayen, 2022 Lofoten, 2024 NESMA; ~360k steady-flight pings, equal
 mission weighting, Tanaka-method AOA regression): C_D0 = 0.150,
 C_D1 = 3.18, a = 4.0. With this single polar the flight model matches the
-ADCP-measured through-water speed at ×1.000–×1.025 across all four
-validated missions (M48 out of sample). Presets: `FLIGHT_SEA064`
+ADCP-measured through-water speed at ×1.000–×1.025 across all five
+validated missions (M48 and M58 out of sample). Presets: `FLIGHT_SEA064`
 (= default), `FLIGHT_SEAEXPLORER_TANAKA22` (0.20/5.0/4.0, the published
 SeaExplorer calibration — a different airframe configuration),
 `FLIGHT_SLOCUM_TANAKA22` (0.18/5.92/5.4), `FLIGHT_SLOCUM_MEA10`

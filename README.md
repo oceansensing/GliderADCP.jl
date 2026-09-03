@@ -4,7 +4,7 @@
 
 Pure-Julia processing of glider-mounted ADCP data into absolute ocean velocity
 profiles: from the raw instrument binary to referenced, quality-controlled U/V/W
-sections. Currently supports the Nortek AD2CP, validated end-to-end on four Alseamar
+sections. Currently supports the Nortek AD2CP, validated end-to-end on five Alseamar
 SeaExplorer missions. Slocum ingestion (`slocum_nav`/`dac_from_slocum` over tables
 from the pure-Julia [SlocumIO.jl](https://github.com/oceansensing/SlocumIO.jl)
 or ERDDAP, with solver conventions verified against the `Slocum-AD2CP` package) is
@@ -162,37 +162,38 @@ nav = load_seaexplorer_nav(["delayed/nav/logs", "glimpse"]; stream = "38.gli.sub
 
 ## Validation
 
-Seven independent lines, all in the test suite (464 tests) or scripted, with gated
+Seven independent lines, all in the test suite (474 tests) or scripted, with gated
 acceptance tests that run on real missions when the data is present.
 
 1. **Reference-implementation parity** — the beam→XYZ transform reproduces `gliderad2cp`
    to machine precision (XYZ agreement 2×10⁻¹⁶); the regridded profiles match at
    r = 0.996 (residual = their small-angle cell-depth approximation, which this package
    avoids). `Slocum-AD2CP`'s row-dropped 3-beam matrix is reproduced as a parity mode.
-2. **Native binary vs MIDAS netCDF** — bit-identical on three missions (M38, M48, M59): every
+2. **Native binary vs MIDAS netCDF** — bit-identical on four missions (M38, M48, M58, M59): every
    velocity, amplitude, correlation, attitude and bottom-track sample, `max |Δvel| = 0`.
 3. **Synthetic-truth recovery** — both solvers recover a prescribed depth-varying
    velocity field from synthetic pings to the bin-discretization floor (permanent tests).
-4. **Four-mission cross-validation** — the full pipeline run on M37/M48 (Jan Mayen
-   2022/2023), M38 (Lofoten), M59 (subtropical NW Atlantic): DAC closure 1–2 mm/s,
-   dive-vs-climb med |Δ| ≈ 2 cm/s, shear-vs-inverse agreement r = 0.90–0.98 at
-   3–6 cm/s rms.
+4. **Five-mission cross-validation** — the full pipeline run on M37/M48 (Jan Mayen
+   2022/2023), M38 (Lofoten), M58/M59 (subtropical NW Atlantic, Gulf Stream, 2024):
+   DAC closure 1–2 mm/s, dive-vs-climb med |Δ| 2–5 cm/s, shear-vs-inverse agreement
+   r = 0.90–0.98 at 3–8 cm/s rms — the two Gulf Stream missions (>1 m/s flows) sit at
+   the top of every absolute range.
 5. **Realtime vs delayed, both realtime tiers** — realtime-onboard (`$PNOR`): inverse
-   = delayed to 3.2–5.1 mm/s rms, zero bias, four missions, amplitude-independent; the
+   = delayed to 3.2–5.9 mm/s rms, zero bias, five missions, amplitude-independent; the
    shear method pays 2–3 cm/s to quantization. The **telemetered `pld1.sub` route**
    (what shore actually receives, 1 ensemble/~30 s × 6 cells): matches the delayed
-   inverse at 28–45 mm/s rms with |bias| ≤ 0.8 mm/s on all four missions — the
-   method-uncertainty floor, and ~3–4× closer to the delayed truth than ALSEAMAR's
-   proprietary product from the same input (100–129 mm/s, r = 0.56–0.89, biases to
-   ~19 mm/s). Telemetered w flags coherent events but aliases fine structure
-   (r = 0.66–0.84; per-mission diagnostic in the example).
+   inverse at 28–56 mm/s rms with |bias| ≤ 0.8 mm/s on all five missions — the
+   method-uncertainty floor, and ~2.5–4× closer to the delayed truth than ALSEAMAR's
+   proprietary product from the same input (100–150 mm/s, r = 0.56–0.89, biases to
+   ~54 mm/s). Telemetered w flags coherent events but aliases fine structure
+   (r = 0.66–0.88; per-mission diagnostic in the example).
 6. **Data-QC discovery** — on M38, 99.7% of bottom-track locks proved false (near-field
    water-borne targets); feeding them to the inverse injected a spurious 300-m shear
    layer. `bt_valid` now screens them by default (min range + impossible-bathymetry
    test), correctly rejecting all of M38's false locks while passing M37's 16 genuine
    ridge-slope locks. See the [QA/QC guide](docs/src/qaqc.md).
 7. **The absolute reference itself** — the vehicle's onboard dead-reckoning runs
-   ×1.05–×1.15 fast on all four missions (measured against the ADCP's directly
+   ×1.05–×1.15 fast on all five missions (measured against the ADCP's directly
    observed through-water flow), biasing a nav-only DAC 2–4 cm/s *against the
    direction of travel*. `compute_dac(nav, pings)` water-tracks the DAC instead;
    verified against GPS surface drift on the three missions where drift can
@@ -286,7 +287,7 @@ examples/missions.jl              shared mission registry
 
 - **Absolute velocity is a navigation question.** Both methods reference the same
   fix-to-fix DAC. The onboard dead-reckoning flight model — measured 5–15 % fast on
-  all four validated missions — is removed from that reference by the water-track
+  all five validated missions — is removed from that reference by the water-track
   form `compute_dac(nav, pings)` (verified against GPS surface drift on the three
   missions where drift is a competent referee; see Validation). What remains is
   GPS accuracy plus the ≲1 cm/s cell-offset shear residual — not yet validated
@@ -307,7 +308,7 @@ examples/missions.jl              shared mission registry
 ## Data availability
 
 The example scripts and gated acceptance tests reference sea064 SeaExplorer mission
-data (M37, M38, M48, M59) held locally by the author and not distributed with this
+data (M37, M38, M48, M58, M59) held locally by the author and not distributed with this
 repository; paths live in `examples/missions.jl`. The test suite detects absent data
 and skips those tests automatically, so `Pkg.test()` passes on a fresh clone —
 synthetic-data tests cover every code path. The gliderad2cp cross-validation ground

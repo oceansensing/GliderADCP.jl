@@ -2,7 +2,7 @@
 
 Pure-Julia processing of glider-mounted ADCP data into absolute ocean velocity
 profiles — from the raw instrument binary to referenced, quality-controlled velocity
-sections. Currently supports the Nortek AD2CP, validated end-to-end on four Alseamar
+sections. Currently supports the Nortek AD2CP, validated end-to-end on five Alseamar
 SeaExplorer missions; Slocum ingestion is implemented but not yet exercised on a real
 Slocum dataset.
 
@@ -62,19 +62,19 @@ lives in the repository under `PLAN.md` and `docs/research/`.
 
 ## Validation summary
 
-| check | result (four validated missions: M37, M38, M48, M59) |
+| check | result (five validated missions: M37, M38, M48, M58, M59) |
 |---|---|
-| native binary reader vs MIDAS netCDF | bit-identical on three missions (M38/M48/M59; max \|Δvel\| = 0) |
+| native binary reader vs MIDAS netCDF | bit-identical on four missions (M38/M48/M58/M59; max \|Δvel\| = 0) |
 | transform parity vs Python `gliderad2cp` | machine-exact (max Δ 2×10⁻¹⁶ m/s) |
 | synthetic truth (both solvers, incl. bottom-track-only referencing) | recovered within bin discretization |
 | DAC closure | median 1–2 mm/s on every mission |
-| dive vs climb consistency (inverse) | median \|Δ\| ≈ 2 cm/s |
-| shear vs inverse agreement (the health metric) | r = 0.90–0.98 at 3–6 cm/s rms |
+| dive vs climb consistency (inverse) | median \|Δ\| 2–5 cm/s (largest in the Gulf Stream) |
+| shear vs inverse agreement (the health metric) | r = 0.90–0.98 at 3–8 cm/s rms |
 | shallow bins vs surface GPS drift (M38) | median \|Δ\| = 4 cm/s |
 | onboard dead-reckoning vs ADCP water track | ×1.05–×1.15 fast → nav-only DAC biased 2–4 cm/s anti-track (hence the water-track default) |
-| w: two estimators, and dive/climb symmetry after calibration | r = 0.985–0.996 at 0.9–1.6 mm/s; asymmetry ≈ 0 to the effective range |
-| realtime-onboard (`$PNOR`) inverse vs delayed | 3.2–5.1 mm/s rms, zero bias |
-| realtime-telemetered (`pld1.sub`) inverse vs delayed | 28–45 mm/s rms, \|bias\| ≤ 0.8 mm/s |
+| w: two estimators, and dive/climb symmetry after calibration | r = 0.985–0.997 at 0.7–1.6 mm/s; asymmetry ≈ 0 to the effective range |
+| realtime-onboard (`$PNOR`) inverse vs delayed | 3.2–5.9 mm/s rms, zero bias |
+| realtime-telemetered (`pld1.sub`) inverse vs delayed | 28–56 mm/s rms, \|bias\| ≤ 0.8 mm/s |
 | bottom track | screened by default: all of M38/M59's false locks rejected; M37/M48's genuine locks pass |
 
 The bottom-track screening exists because 99.7 % of the reference mission's BT locks

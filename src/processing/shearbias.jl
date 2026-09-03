@@ -160,7 +160,7 @@ flips at `pitch = 0` ([`select_beams`](@ref)) — is mirrored between them. So t
 instrumental by construction, and the symmetric half (where real signal lives) is
 left untouched.
 
-Measured on the four reference missions: the dive/climb asymmetry of `w` is ≈ 0 at
+Measured on the five reference missions: the dive/climb asymmetry of `w` is ≈ 0 at
 the nearest cells and grows monotonically with range to 8–27 mm/s at 24–30 m —
 the vertical projection of the same range-dependent beam bias `shear_bias`
 removes in the horizontal plane. Because pair differences determine only the

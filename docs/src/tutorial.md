@@ -90,19 +90,19 @@ The native reader was validated **bit-for-bit** against the MIDAS export of the 
 file (every velocity, amplitude, correlation, attitude and bottom-track sample), and the
 `$PNOR` stream reproduces the full-resolution record at its reduced precision
 (r = 1.000 for heading and beam velocities). Run through the full pipeline, the stream
-yields essentially the delayed-mode product: on all four validated missions the
-inverse solution matches the binary-derived one to r ≥ 0.9984 and 3.2–5.1 mm/s rms with
-zero bias, independent of signal amplitude (the agreement holds through a >1 m/s Gulf
-Stream jet on M59) — the 0.01 m/s per-sample quantization averages down in the bin
+yields essentially the delayed-mode product: on all five validated missions the
+inverse solution matches the binary-derived one to r ≥ 0.9984 and 3.2–5.9 mm/s rms with
+zero bias, independent of signal amplitude (the agreement holds through >1 m/s Gulf
+Stream jets on M58 and M59) — the 0.01 m/s per-sample quantization averages down in the bin
 means, so onboard processing from this stream is quantitatively viable
 (`examples/realtime_onboard.jl`) — but only for an onboard consumer (backseat
 driver), since the stream is payload-logged, not transmitted. **Shore-side realtime
 calculations should be built on the realtime-telemetered route**: the AD2CP subset
 inside the transmitted `pld1.sub` (`load_pld_adcp` — one ensemble per ~30 s, 6 cells). Run
-through the same pipeline it matches the delayed inverse at 28–45 mm/s rms with
-|bias| ≤ 0.8 mm/s on all four validated missions — at the method-uncertainty floor —
-and ~3–4× closer to the delayed truth than ALSEAMAR's proprietary GLIMPSE product from
-the identical input (rms 100–129 mm/s, biases to ~19 mm/s)
+through the same pipeline it matches the delayed inverse at 28–56 mm/s rms with
+|bias| ≤ 0.8 mm/s on all five validated missions — at the method-uncertainty floor —
+and ~2.5–4× closer to the delayed truth than ALSEAMAR's proprietary GLIMPSE product from
+the identical input (rms 100–150 mm/s, biases to ~54 mm/s)
 (`examples/realtime_telemetered.jl`; see the QA/QC guide §8 for the routes table). Two caveats: pass `look=` explicitly to
 `process_pings` (the stream has no accelerometer), and expect the shear-method product
 to carry ~2.5 cm/s rms extra noise, since vertical integration accumulates the
@@ -185,10 +185,10 @@ stats = qc!(adcp)          # masks rejected samples to NaN, returns per-screen f
 | \|v_beam\| ≤ 0.8 m/s | wraps/outliers | ambiguity velocity of the standard config is 2.5 m/s |
 | ambiguity fraction 0.9 | near-wrap samples | uses the configured velocity range |
 | glider depth ≤ 5 m | surfaced pings | bubbles, wake, GPS-fix maneuvering |
-| first cell (off by default) | ringing | with ≥ 0.5 m blanking cell 1 is clean (validated on four missions) and kept; set `first_cells = 1` for small-blanking configs — `qc!` warns |
+| first cell (off by default) | ringing | with ≥ 0.5 m blanking cell 1 is clean (validated on five missions) and kept; set `first_cells = 1` for small-blanking configs — `qc!` warns |
 | instrument error ≠ 0 | flagged pings | hardware self-reports |
 
-The defaults reject 46–53 % of beam samples on the four validated missions —
+The defaults reject 46–56 % of beam samples on the five validated missions —
 dominated by the SNR floor beyond the useful range and the surface mask; the surviving samples are
 the ones the solvers should see. Loosening the surface mask to 2 m and keeping the first
 cell was tested and does **not** change the near-surface answer (it slightly degrades
@@ -292,7 +292,7 @@ w   = vertical_velocity(pings)                # w = U_rel + dP/dt, flight-model-
 
 !!! note "Vertical velocity has two systematic artifacts — both correctable"
     `w = U_rel + w_glider` needs no flight model, but it carries two biases that
-    the horizontal chain does not, both measured on all four reference missions:
+    the horizontal chain does not, both measured on all five reference missions:
 
     **1. A dive/climb asymmetry that grows with range.** Climb-median `w` sits
     2.7–6.5 mm/s below dive-median `w`; resolved against cell offset the
@@ -326,7 +326,7 @@ w   = vertical_velocity(pings)                # w = U_rel + dP/dt, flight-model-
     and the surfacing fix "corrects" the difference into the DAC. Measured against
     the ADCP's own through-water flow (a direct measurement,
     [`throughwater_velocity`](@ref)), that onboard model runs **5–15 % fast on all
-    four validated missions**, which biases the nav-only DAC 2–4 cm/s *against the
+    five validated missions**, which biases the nav-only DAC 2–4 cm/s *against the
     direction of travel* — several times the textbook 1–2 cm/s DAC accuracy, and it
     flips sign with track direction (zigzag artifacts between opposing transects).
     `compute_dac(nav, pings)` replaces the onboard displacement with
@@ -396,7 +396,7 @@ not an implementation artifact — it is the structural difference between the m
 and the reason the lADCP community moved to inversions. The cleanest demonstration is
 the realtime-onboard comparison: given identically quantized input samples, the inverse's
 error stays a flat 4–5 mm/s to 1000 m while the shear method's grows with depth to
-2–3 cm/s, on all four validated missions. Use the shear solution as an independent
+2–3 cm/s, on all five validated missions. Use the shear solution as an independent
 cross-check, reading its per-yo wiggles with the drift envelope in mind. Its knobs live
 in [`ShearOptions`](@ref) (bin size `dz`, the `:median`/`:mean` bin statistic,
 `min_bin_obs`, `min_pings`, and `:timeweighted` vs `:simple` DAC referencing), the
@@ -427,9 +427,9 @@ shear (see the validation report for the full analysis).
 # 1. dive vs climb consistency: solve half-yos independently, compare common bins.
 #    M38: r = 0.98, median |Δ| = 2 cm/s. Values ≫ 5 cm/s indicate attitude/geometry issues.
 # 2. DAC closure: depth-mean of each profile vs its DAC
-#    (median 1–2 mm/s on all four validated missions; ≫ 1 cm/s ⇒ referencing errors).
+#    (median 1–2 mm/s on all five validated missions; ≫ 1 cm/s ⇒ referencing errors).
 # 3. Shear-vs-inverse agreement on common (yo, z) bins
-#    (r = 0.90–0.98, rms 3–6 cm/s across missions; a collapse here flags contamination
+#    (r = 0.90–0.98, rms 3–8 cm/s across missions; a collapse here flags contamination
 #    anywhere in the chain — this check exposed the false bottom-track defect).
 # 4. Surface drift: mean of the shallowest bins vs surface_drift after each yo
 #    (M38: median |Δ| = 4 cm/s).
@@ -465,8 +465,8 @@ Everything above used delayed-mode data; the identical pipeline also runs mid-mi
 on what Iridium actually delivers — the AD2CP subset inside the transmitted
 `pld1.sub` (one subsampled instrument ensemble every ~30 s, beam velocities in
 cells 1–6 at 0.01 m/s, attitude and pressure; no amplitude, correlation, or bottom
-track). This is a first-class product of the package: on the four validated missions
-it matches the delayed inverse at **28–45 mm/s rms with |bias| ≤ 0.8 mm/s** — at the
+track). This is a first-class product of the package: on the five validated missions
+it matches the delayed inverse at **28–56 mm/s rms with |bias| ≤ 0.8 mm/s** — at the
 method-uncertainty floor — solving the (nearly) identical yo set.
 
 The complete shore-side workflow, with the three steps that differ from delayed-mode
@@ -504,7 +504,7 @@ What to expect, and the honest caveats:
   range (the discarded far cells are the ones QC rejects anyway) and the inverse
   averages the quantization down. The r against the delayed product tracks signal
   variance (0.86 in a weak-flow regime, 0.98 in strong flow) at unchanged rms.
-* **w is the one casualty** (r = 0.66–0.84 vs delayed): the 30-s subsampling aliases
+* **w is the one casualty** (r = 0.66–0.88 vs delayed): the 30-s subsampling aliases
   the small, fast vertical signal — the large coherent events survive, the fine
   banding washes into speckle. The example writes a per-mission diagnostic
   (`M*_telemetered_w_sections.png`, delayed vs telemetered w side by side) so this
@@ -518,8 +518,8 @@ What to expect, and the honest caveats:
 
 For calibration/context, ALSEAMAR's GLIMPSE server computes its own product from the
 same raw telemetered data server-side (the `AD2CP_*_c` columns in its CSV exports);
-the open pipeline above lands ~3–4× closer to the delayed truth on every mission
-(28–45 vs 100–129 mm/s rms). Full comparison: `examples/realtime_telemetered.jl` and
+the open pipeline above lands ~2.5–4× closer to the delayed truth on every mission
+(28–56 vs 100–150 mm/s rms). Full comparison: `examples/realtime_telemetered.jl` and
 the QA/QC guide §8 routes table.
 
 ## 11. Scientific interpretation and caveats

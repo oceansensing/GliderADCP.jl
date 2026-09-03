@@ -881,3 +881,69 @@ Diagnostic: `examples/w_diagnostics.jl` → `w_quality_diagnostics.png`
 with zero ocean w and a known injected antisymmetric range-growing bias, which
 the calibration recovers to 1e-6 and removes to 1e-5, plus the screen's
 behavior at an inflection ping (464 total).
+
+## M58 (2026-07-26): fifth validated mission
+
+sea064 M58, NESMA "passengers" 2024-07-10 → 07-20 (38.6°N, subtropical NW Atlantic —
+the Gulf Stream deployment two weeks before M59). Added as one registry entry in
+`examples/missions.jl`; no code changes were needed anywhere in the pipeline.
+Contrary to an earlier note in GliderTurbulence's README, the mission has a full
+native `.ad2cp` binary (26.7 MB) as well as the MIDAS export, and the two are
+**bit-identical** (58,814 ensembles, max |Δvel| = 0) — the parity claim now covers
+four missions (M38/M48/M58/M59). All three data routes exist for prefix 58
+(60 gli.sub / pld1.sub / pld1.raw / ad2cp.raw segments, 57 GLIMPSE per-cycle CSVs),
+so every example script ran unchanged. Instrument SN 102381, 15 × 2 m cells,
+0.7 m blanking, configured salinity **35.0** (M38 had 38 — the correction chain reads
+it from the file; a gated test now pins that). Declination −15.5…−15.3°.
+
+**Delayed mode.** QC rejected 56.1 %. DAC: 59 segments, all 59 ADCP water-tracked
+(no duty cycling), 0 bottom-track survivors (4–5 km water, as on M59). Health:
+shear vs inverse r = 0.921/0.963 at rms 84/70 mm/s; dive vs climb r = 0.905/0.953,
+med |Δ| 49/43 mm/s; DAC closure 2 mm/s. The rms figures are the largest of the
+five missions — but the flow reaches 1.3 m/s at the surface (the Jul 13–14 jet
+crossing dominates the U section), the correlations are in the documented band,
+and the diagnostics scatter shows no structure beyond signal variance. The
+documented ranges therefore widen at the strong-flow end rather than a mission
+being excluded: shear-vs-inverse rms 3–6 → 3–8 cm/s, dive/climb 2 → 2–5 cm/s,
+QC rejection 46–53 → 46–56 %.
+
+**Onboard DR forensic** (DR-track step speed vs ADCP through-water flow, 27k
+steady steps): onboard ×1.140 fast (IQR 1.05–1.25), flight model ×1.024, DR
+course − ADCP course −1.0°. Same firmware signature as the other four; the
+×1.05–×1.15 claim holds on all five. DAC ladder (`dac_methods.jl`):
+onboard − ADCP median |Δu|/|Δv| 4.3/2.5 cm/s (p95 5.8/4.9), flight − ADCP
+1.1/0.6 cm/s — the flight model again ~3–4× closer and unbiased.
+
+**Vertical velocity.** Vertical-bias slope 1.32×10⁻⁴ (in the 1.3–2.3×10⁻⁴ band);
+dive/climb asymmetry −6.4 mm/s at 14–18 m before → within +1.5 after (24–30 m has
+too few pairs on this shorter mission); `:direct` vs `:inverse` r = 0.9974,
+rms 0.7 mm/s (widening the band to 0.985–0.997 / 0.7–1.6); median w −2.0 mm/s.
+
+**Realtime routes.** Onboard `$PNOR`: inverse = delayed at r = 0.9994/0.9997,
+rms 5.9/5.9 mm/s, zero bias (widening 3.2–5.1 → 3.2–5.9 mm/s); w r = 0.9995.
+Telemetered `pld1.sub` (19,623 pings → all 59 yos): u/v r = 0.956/0.973,
+rms 50/56 mm/s, |bias| ≤ 0.4 mm/s (widening 28–45 → 28–56 mm/s; the bias bound
+holds); w r = 0.881 (the best of the five — 0.66–0.88). ALSEAMAR's server-side
+product is furthest from truth here of any mission: rms 150/133 mm/s with
+**+54/+43 mm/s biases** (previously ≤ 19 mm/s) — their onboard-DR-referenced DAC
+in a strong, one-directional current, presumably; the open telemetered product is
+~2.7× closer.
+
+**The one genuine caveat — shear-bias sign flip.** `calibrate_shear_bias!`
+returned **+1.9×10⁻⁴ s⁻¹** along-track (cross +2.8×10⁻⁴): the first positive slope,
+on the same instrument that gave −5×10⁻⁵ two weeks later on M59. The cause is the
+calibration's one assumption: real ocean shear is supposed to average out over
+varied headings. On M58 the glider held a near-constant WNW heading across the
+Stream — median 294°, IQR 250–313°, **heading concentration R = 0.78**, just under
+the 0.8 warning (M59: R = 0.39, headings varied) — so real along-stream shear
+leaks into the "bias". Magnitude: a few mm/s across the 15–17 m profiling window,
+negligible against the jet, and the inverse (which only partially consumes the
+correction) is unaffected. Recorded so nobody reads M58's slope as an instrument
+number; QA/QC §4 now says to log `heading_concentration` alongside the slope, and
+R ≳ 0.7 is the flag. Whether to lower the warning threshold from 0.8 is left open —
+0.78 is one mission's evidence.
+
+**Documentation.** Every "four missions" claim updated to five (README, tutorial,
+QA/QC guide, index, CLAUDE.md, PLAN, three source docstrings); ranges widened as
+above; `w_diagnostics.jl` given a fifth series color. Gated acceptance test added
+(binary ≡ netCDF, serial, cell count, salinity setting).

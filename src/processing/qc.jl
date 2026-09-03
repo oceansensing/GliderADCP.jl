@@ -13,7 +13,7 @@ screen. See the tutorial for tuning guidance.
 
 `first_cells = 0` (keep the first cell) is validated for large-blanking
 configurations: with ≥ 0.5 m blanking, cell 1 shows full correlation, on-curve
-amplitude and unbiased velocities on four reference missions (~1.5× per-sample noise;
+amplitude and unbiased velocities on five reference missions (~1.5× per-sample noise;
 see the QA/QC guide) — dropping it discards good data. Deployments with small
 blanking (Nortek default ~0.1 m) should set `first_cells = 1`: [`qc!`](@ref) warns
 when the configured blanking is below 0.5 m and the first cell is being kept.

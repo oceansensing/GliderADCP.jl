@@ -13,7 +13,7 @@ by inspection of the velocities themselves.
 
 The default screens (correlation ≥ 50 %, amplitude window, SNR floor, ambiguity,
 surface mask, first cell, error flags — see the tutorial for the full table)
-reject **46–53 % of beam samples** on the four validated missions. That number
+reject **46–56 % of beam samples** on the five validated missions. That number
 is normal, dominated by the SNR floor beyond the useful range plus the surface
 mask, and it is not hiding signal: loosening the surface mask and keeping the
 first cell was tested on M38 and does not change the near-surface answer.
@@ -37,7 +37,7 @@ profile collapses early, do not expect the outer cells to contribute.
 ## 2b. The first cell: keep it when blanking ≥ 0.5 m
 
 The fleet flies 0.7 m blanking precisely so cell 1 clears transducer ringing —
-and it does, on all four missions: full correlation (96–97 %), amplitude on the
+and it does, on all five missions: full correlation (96–97 %), amplitude on the
 physical decay curve (no ringing spike), no velocity bias against cell 2
 (≤ 2.5 mm/s, the ordinary range-dependent pattern), just ~1.5× per-sample noise.
 Keeping it adds 12 % of samples (and 1/6 of all telemetered data), improves the
@@ -86,7 +86,7 @@ The other navigation input the products rest on, and the second one that cannot
 be trusted unscreened. The nav-only DAC is `(fix − DR_end)/T`, so it inherits
 ALSEAMAR's onboard flight model wholesale. Measured against the ADCP's directly
 observed through-water flow (near-cell mean relative velocity, no flight model
-involved), the onboard model ran **×1.05–×1.15 fast on all four validated
+involved), the onboard model ran **×1.05–×1.15 fast on all five validated
 missions** (×1.13 typical; it behaves like a steady glide-polar with roughly
 half the real angle of attack). The result: the onboard DR endpoint overshoots
 forward and the nav-only DAC carries a **2–4 cm/s bias against the direction of
@@ -102,7 +102,7 @@ is the production default. The full ladder, per yo, flagged in the `method`
 column: **ADCP water track** (direct measurement) → **flight model**
 (`fallback = flight_model(nav)`, or `compute_dac(nav, flight_model(nav))` on
 ADCP-less deployments — the package's own steady polar dead-reckons within
-1.4/1.4/3.1/1.4 cm/s median of the ADCP water track on M37/M38/M48/M59, with
+1.4/1.4/3.1/1.4 cm/s median of the ADCP water track on M37/M38/M48/M59 (M58: ~1 cm/s), with
 the systematic along-track bias gone: +0.1/+0.0/+0.5/+0.8 cm/s) → **onboard
 estimate** (last resort). The flight-model rung assumes zero vertical water
 velocity and travel along heading, and its accuracy tracks the polar's
@@ -132,8 +132,8 @@ glider pointed upstream into the Gulf Stream).
 ## 3c. Vertical velocity: two artifacts, both correctable
 
 `w = U_rel + w_glider` needs no flight model, and its two independent
-estimators agree tightly (`solve_w` `:direct` vs `:inverse`: r = 0.985–0.996,
-rms 0.9–1.6 mm/s on the four missions, mission-median w −1…−2 mm/s against an
+estimators agree tightly (`solve_w` `:direct` vs `:inverse`: r = 0.985–0.997,
+rms 0.7–1.6 mm/s on the five missions, mission-median w −1…−2 mm/s against an
 expected ~0). Two systematic biases sit underneath that agreement, both found
 by asking a question the ocean cannot answer differently on dives and climbs.
 
@@ -169,16 +169,25 @@ per-ping/event work rather than section means.
 
 All missions carry a range-dependent along-track bias in the beam samples, but
 its magnitude is **configuration/mission-dependent, not an instrument
-constant**: −4.7/−4.3×10⁻⁴ s⁻¹ on the 2022 missions, −3.1×10⁻⁴ in 2023, and
-−5×10⁻⁵ (nearly an order of magnitude smaller) on the same instrument in 2024
-(measured with cell 1 included). Left uncorrected it tilts the
+constant**: −4.7/−4.3×10⁻⁴ s⁻¹ on the 2022 missions, −3.1×10⁻⁴ in 2023, and on
+the same instrument in 2024 −5×10⁻⁵ (M59) but **+1.9×10⁻⁴ (M58) — the first sign
+flip** (all measured with cell 1 included). Left uncorrected it tilts the
 shear-method profiles end to end; the inverse partially averages it away.
 `calibrate_shear_bias!` measures it with a pairwise-difference estimator
 (per-offset means under-correct when depth coverage is partial) and removes it
 ping-mean-invariantly to machine zero.
 
-**Check:** always calibrate; log the fitted slope with the mission record. A
-slope drifting between missions is diagnostic of configuration changes.
+M58 is the cautionary case for the calibration's one assumption — that real
+ocean shear averages out over varied headings. Crossing the Gulf Stream the
+glider held a near-constant WNW heading (median 294°, heading concentration
+R = 0.78, just under the 0.8 warning), so real along-stream shear leaks into
+the "bias" and flips its sign. The leakage is a few mm/s across the profiling
+window — negligible against a >1 m/s jet, and the inverse (r = 0.92 vs shear)
+is unaffected — but M58's slope is not a clean instrument number.
+
+**Check:** always calibrate; log the fitted slope *and* `heading_concentration`
+with the mission record. A slope drifting between missions is diagnostic of
+configuration changes; R ≳ 0.7 means the slope may carry real shear.
 
 ## 5. Compass and attitude (`compass_field_check`)
 
@@ -239,7 +248,7 @@ A glider AD2CP dataset exists in **three tiers**; name them precisely:
 | cells | all (15) | all (15) | first 6 |
 | amp / corr / BT | yes / yes / yes | yes / yes / no | none |
 | quantization | none | 0.01 m/s | 0.01 m/s |
-| inverse vs delayed | — (reference) | 3.2–5.1 mm/s rms (four missions) | 28–45 mm/s rms, \|bias\| ≤ 0.8 mm/s (four missions) |
+| inverse vs delayed | — (reference) | 3.2–5.9 mm/s rms (five missions) | 28–56 mm/s rms, \|bias\| ≤ 0.8 mm/s (five missions) |
 
 **Shore-side realtime calculations should be built on the telemetered route**
 — it is the only realtime tier that exists ashore. The `$PNOR` stream is
@@ -247,7 +256,7 @@ useful in real time only to an onboard consumer (e.g. a backseat driver); its
 3–5 mm/s result bounds what such a consumer could compute. Both realtime
 routes lack the accelerometer — pass `look=` explicitly. The telemetered
 product solves the (nearly) identical yo set and lands at the
-method-uncertainty floor (~3.2 cm/s); its one casualty is w (r ≈ 0.66–0.84,
+method-uncertainty floor (~3.2 cm/s); its one casualty is w (r ≈ 0.66–0.88,
 rms 5.5–9.5 mm/s — the 30-s subsampling aliases the small, fast vertical
 signal). The per-mission diagnostic (`M*_telemetered_w_sections.png`, written
 by `examples/realtime_telemetered.jl`) shows what that number means: **large
@@ -260,8 +269,8 @@ the latter, compute w onboard from `$PNOR`, or wait for delayed data.
 summary r — event survival is what matters operationally.
 For reference, ALSEAMAR's GLIMPSE product — computed **server-side** from the same raw
 telemetered data and written back into the server CSV exports as the
-`AD2CP_*_c` columns — sits ~3–4× further from the delayed truth on every mission (rms
-100–129 mm/s, r = 0.56–0.89, mission-dependent biases to ~19 mm/s, striping
+`AD2CP_*_c` columns — sits ~2.5–4× further from the delayed truth on every mission (rms
+100–150 mm/s, r = 0.56–0.89, mission-dependent biases to ~54 mm/s on M58, striping
 and spurious deep values; biases are quoted against the water-track-referenced
 delayed product — against the old onboard-referenced product they read up to
 38 mm/s, the difference being the onboard-DR error itself). `AD2CP_TIME` is the instrument clock (MMDDYY) — immune
@@ -274,11 +283,11 @@ M37's stream held 15 ensembles the instrument card did not retain.
 | check | validated values | what a failure means |
 |---|---|---|
 | dive vs climb consistency | r = 0.98, med \|Δ\| = 2 cm/s (M38) | transform/sign/geometry errors |
-| DAC closure (per yo) | median 1–2 mm/s (all four missions) | referencing errors |
-| water-track vs onboard DAC | med \|Δ\| ≈ 4 cm/s, along-track (all four) | ≫ 4 cm/s flags DR, compass, or ADCP trouble; ≈ 0 means the vendor fixed their flight model |
-| shear vs inverse agreement | r = 0.90–0.98, rms 3–6 cm/s | contamination anywhere in the chain — this is the check that exposed the false-BT defect |
+| DAC closure (per yo) | median 1–2 mm/s (all five missions) | referencing errors |
+| water-track vs onboard DAC | med \|Δ\| ≈ 4 cm/s, along-track (all five) | ≫ 4 cm/s flags DR, compass, or ADCP trouble; ≈ 0 means the vendor fixed their flight model |
+| shear vs inverse agreement | r = 0.90–0.98, rms 3–8 cm/s | contamination anywhere in the chain — this is the check that exposed the false-BT defect |
 | surface drift vs shallowest bins | med \|Δ\| = 4 cm/s (M38) | near-surface problems |
-| w: `:direct` vs `:inverse` | r = 0.985–0.996, rms 0.9–1.6 mm/s | vertical-chain problems (the two routes share only the samples) |
+| w: `:direct` vs `:inverse` | r = 0.985–0.997, rms 0.7–1.6 mm/s | vertical-chain problems (the two routes share only the samples) |
 | w: dive/climb asymmetry after calibration | within a few mm/s to the effective range | uncorrected vertical beam bias (§3c) |
 | BT plausibility (if any locks survive) | implied depth vs bathymetry | false locks |
 

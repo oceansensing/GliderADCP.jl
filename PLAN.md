@@ -4,7 +4,7 @@
 into absolute ocean velocity profiles.**
 
 Status (2026-07-16): **all phases complete** (0–7) plus the §8a/§8b/§8c follow-up
-work — 464 tests, four validated missions (M37/M38/M48/M59), the three-tier
+work — 474 tests, five validated missions (M37/M38/M48/M58/M59), the three-tier
 data-route taxonomy (delayed-mode / realtime-onboard / realtime-telemetered), the
 first-cell verdict (kept by default for ≥ 0.5 m blanking), the water-track DAC ladder
 (the onboard flight model is out of the product loop), and the vertical-bias
@@ -453,6 +453,16 @@ All six §8a tasks closed, then:
    `|glider_w|`) — per-ping only, mission-median w unchanged. Diagnostic:
    `examples/w_diagnostics.jl`. Evidence: validation doc 2026-07-16 w entry,
    QA/QC §3c.
+6. **M58 — fifth validated mission (2026-07-26).** NESMA 2024-07-10→20, the Gulf
+   Stream deployment two weeks before M59; native binary ≡ MIDAS export (bit-identical,
+   58,814 ensembles), all three data routes present. One registry entry, no code
+   changes: 59/59 yos water-tracked, DAC closure 2 mm/s, onboard DR ×1.14 fast,
+   flight model ×1.024, vertical-bias slope 1.3×10⁻⁴, realtime-onboard 5.9 mm/s,
+   telemetered 50–56 mm/s. Widened the documented ranges at the strong-flow end
+   (shear-vs-inverse rms to 8 cm/s, telemetered to 56 mm/s, QC rejection to 56 %).
+   Recorded caveat: shear-bias slope +1.9×10⁻⁴ — the first positive value — is
+   real-shear leakage from a near-constant WNW heading (R = 0.78), not instrument.
+   Evidence: validation doc 2026-07-26 M58 entry.
 
 ## 9. Risks & open questions
 

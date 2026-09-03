@@ -19,7 +19,7 @@ extension; not yet public).
 ## Commands
 
 ```bash
-# tests (464; gated acceptance tests auto-skip when local mission data is absent)
+# tests (474; gated acceptance tests auto-skip when local mission data is absent)
 ~/.juliaup/bin/julia +1.13 --project=. -e 'using Pkg; Pkg.test()'
 
 # docs (Documenter; SeaExplorerIO is dev'd into docs/Manifest)
@@ -36,8 +36,8 @@ JULIA_LOAD_PATH="@:@ocean:@stdlib" ~/.juliaup/bin/julia +1.13 --project=. exampl
 ```
 
 Reference mission data lives under
-`/Users/gong/oceansensing Dropbox/C2PO/glider/gliderData/` (four validated missions:
-M37, M38, M48, M59 — paths in `examples/missions.jl`). Watch for unsynced Dropbox
+`/Users/gong/oceansensing Dropbox/C2PO/glider/gliderData/` (five validated missions:
+M37, M38, M48, M58, M59 — paths in `examples/missions.jl`). Watch for unsynced Dropbox
 placeholder files (read as zero bytes; loaders warn `no rows parsed`).
 
 ## Standing decisions (do not silently revisit)
@@ -53,14 +53,14 @@ placeholder files (read as zero bytes; loaders warn `no rows parsed`).
   opinion. Their agreement (r = 0.90–0.98 across missions) is the top health metric —
   a collapse flags contamination. Full argument + limits: validation doc §Method verdict.
 - **First cell is kept by default** (`QCThresholds.first_cells = 0`): the fleet's
-  deliberate 0.7 m blanking makes cell 1 clean (validated on all four missions).
+  deliberate 0.7 m blanking makes cell 1 clean (validated on all five missions).
   `qc!` warns if blanking < 0.5 m — small-blanking configs need `first_cells = 1`.
 - **Never trust bottom track unscreened**: 99.7 % of M38's BT locks were false
   near-field water-borne targets. `bt_valid` defaults (min_range = 5 m +
   impossible-bathymetry test) stay on; verify surviving locks' implied water depth
   against bathymetry.
 - **DAC is a water-track ladder** (`compute_dac(nav, pings; fallback=flight_model(nav))`):
-  ALSEAMAR's onboard DR flight model runs ×1.05–×1.15 fast (all four missions),
+  ALSEAMAR's onboard DR flight model runs ×1.05–×1.15 fast (all five missions),
   biasing the nav-only DAC 2–4 cm/s anti-track. Rungs, flagged per yo in `method`:
   `:adcp` (integrated `throughwater_velocity`) → `:flight` (our flight model,
   ~1.4 cm/s from the water track, unbiased; also the ADCP-less form
@@ -78,7 +78,9 @@ placeholder files (read as zero bytes; loaders warn `no rows parsed`).
   AD2CP magnetic compass). Never add declination to nav heading; the AD2CP's own
   heading IS magnetic and `process_pings` adds declination there.
 - **Shear-bias calibration is per-mission** (`calibrate_shear_bias!`): the slope is
-  configuration-dependent (−4.7×10⁻⁴ … −5×10⁻⁵ s⁻¹ across 2022–2024), never hard-code.
+  configuration-dependent (−4.7×10⁻⁴ … +1.9×10⁻⁴ s⁻¹ across 2022–2024; M58's positive
+  value is real-shear leakage at heading concentration R = 0.78 — log R with the slope),
+  never hard-code.
 - **w has its own range-dependent bias** (`calibrate_vertical_bias!`, run after the
   horizontal one; slope 1.3–2.3×10⁻⁴ s⁻¹ across missions): the vertical projection of
   the same beam bias, visible as a dive/climb asymmetry growing from ~0 at the near
@@ -90,7 +92,7 @@ placeholder files (read as zero bytes; loaders warn `no rows parsed`).
   −4…−15 mm/s unsteady-flight bias but does **not** move mission-median w — per-ping
   defect, not product-level. Evidence: validation doc 2026-07-16 w entry, QA/QC §3c.
 - **Telemetered w: events yes, statistics no.** The 30-s subsampling aliases texture
-  (r = 0.66–0.84 vs delayed) but large coherent vertical-velocity events survive —
+  (r = 0.66–0.88 vs delayed) but large coherent vertical-velocity events survive —
   the per-mission diagnostic `M*_telemetered_w_sections.png` (from
   `examples/realtime_telemetered.jl`) is the check; wave-scale w work needs the
   `$PNOR` (onboard) or delayed tiers.
